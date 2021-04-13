@@ -289,6 +289,97 @@ local weaponEffects = {
     },
 }
 
+function events.ItemAdditionalDamage(t)
+    -- local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Armsmaster])
+    -- t.Player.Skills[const.Skills.Armsmaster] = JoinSkill(math.max(wskill, 10), math.max(wmastery, const.GM))
+    local itemSkill = Game.ItemsTxt[t.Item.Number].Skill
+    local isMelee = itemSkill ~= const.Skills.Bow 
+
+    local damage = 0
+    damage = damage + tryToPerformAmbush(t, onHitMonster, isMelee)
+
+    tryToPerformGreaterCleave(t, onHitMonster, isMelee)
+    tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitMonster, isMelee)
+    tryToPerformApplyMonsterBuff(t.Player, t.Monster, onHitMonster, isMelee)
+
+    damage = damage + tryToPerformCrit(t, onHitMonster, isMelee)
+
+    damage = damage + tryToPerformExtraDamageOnMonsterCondition(t, onHitMonster, isMelee)
+    damage = damage + tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitMonster, isMelee)
+    damage = damage + tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitMonster, isMelee)
+
+    t.Result = damage
+end
+
+function events.CalcDamageToMonster(t)
+    -- if a player is not the source then no extra damage is done 
+    if t.Player == nil then
+        return
+    end
+
+    -- Ensure we don't do extra damage to monsters immune to physical damage, probably not wise even with blaster
+    if t.Monster.PhysResistance == 200 then
+        return
+    end
+
+    local itemMain =  t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number] or nil
+
+    local playerUsesBlaster = itemMain ~= nil and itemMain.Skill == const.Skills.Blaster
+    -- Weapon Effects should only trigger on Phys damage or blaster attacks
+    if t.DamageKind ~= const.Damage.Phys and t.DamageKind ~= 12 then 
+        return
+    elseif t.DamageKind == 12 and playerUsesBlaster ~= true then 
+
+        return
+    end
+
+    local damage = 0
+    local isMelee = isMonsterInMeleeRange(Map.Monsters[t.MonsterIndex])
+
+    -- This is needed to be able to proc skills with unarmed attacks or blasters
+    if (isMelee and t.Player.ItemMainHand == 0) or playerUsesBlaster then
+        local dmgReductionFactor = t.Result / t.Damage
+        damage = damage + tryToPerformAmbush(t, onHitMonster, isMelee) * dmgReductionFactor
+        tryToPerformGreaterCleave(t, onHitMonster, isMelee) 
+        tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitMonster, isMelee)
+        tryToPerformApplyMonsterBuff(t.Player, t.Monster, onHitMonster, isMelee)
+        damage = damage + tryToPerformCrit(t, onHitMonster, isMelee) * dmgReductionFactor
+        damage = damage + tryToPerformExtraDamageOnMonsterCondition(t, onHitMonster, isMelee) * dmgReductionFactor
+        damage = damage + tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitMonster, isMelee) * dmgReductionFactor
+        damage = damage + tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitMonster, isMelee) * dmgReductionFactor
+    end
+
+    damage = damage + tryToPerformInstantKill(t, onHitMonster, isMelee)
+
+    -- if true damage then use t.Damage instead of t.Result
+    if tryToPerformTrueDamage(t, onHitMonster, isMelee) then
+        damage = damage + t.Damage
+    else 
+        damage = damage + t.Result
+    end 
+
+    t.Result = damage
+end
+
+function events.CalcDamageToPlayer(t) 
+    local attacker = WhoHitPlayer()
+    if attacker.MonsterIndex == nil then
+        -- if a monster was not the souce then we do not want to proc effects
+        return
+    end
+
+    -- monster can be used to perform revengeful single target attacks.
+    local monster = Map.Monsters[attacker.MonsterIndex]
+    -- Greater cleaver counter attack
+    tryToPerformGreaterCleave(t, onHitPlayer, nil)
+    tryToPerformApplyMonsterBuff(t.Player, monster, onHitPlayer, nil)
+    tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitPlayer, nil)
+
+    local damageFactor = tryToPerformBlock(t, onHitPlayer)
+    -- damageFactor 1 is full damage, damageFactor 0 is no damage, 0.5 is half damage
+    t.Result = t.Result * damageFactor
+    
+end
 
 function tryToPerformTrueDamage(t, onHitEventType, isMelee)
     local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weTrueDamage, isMelee)
@@ -514,8 +605,6 @@ function tryToPerformAmbush(t, onHitEventType, isMelee)
     return damage
 end
 
-
-
 function getWeaponsEffectAvailability(player, onHitEventType, weaponEffectId, isMelee) 
     local weapons = getPlayerWeapons(player)
 
@@ -592,7 +681,6 @@ function isWeaponEffectAvailableOnWeapon(player, onHitEventType, weaponEffectId,
     return true
 end
 
-
 -- cant use Weapon.Skill because if Unarmed then weapon is nil 
 function getWeaponEffect(onHitEventType, weaponEffectId, weapon, skill)
 
@@ -622,80 +710,6 @@ function getPlayerWeapons(player)
     }
 end
 
-function events.CalcDamageToMonster(t)
-
-    -- if a player is not the source then no extra damage is done 
-    if t.Player == nil then
-        return
-    end
-
-    -- Ensure we don't do extra damage to monsters immune to physical damage, probably not wise even with blaster
-    if t.Monster.PhysResistance == 200 then
-        return
-    end
-
-    local itemMain =  t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number] or nil
-
-    local playerUsesBlaster = itemMain ~= nil and itemMain.Skill == const.Skills.Blaster
-    -- Weapon Effects should only trigger on Phys damage or blaster attacks
-    if t.DamageKind ~= const.Damage.Phys and t.DamageKind ~= 12 then 
-        return
-    elseif t.DamageKind == 12 and playerUsesBlaster ~= true then 
-
-        return
-    end
-
-    local damage = 0
-    local isMelee = isMonsterInMeleeRange(Map.Monsters[t.MonsterIndex])
-
-    -- This is needed to be able to proc skills with unarmed attacks or blasters
-    if (isMelee and t.Player.ItemMainHand == 0) or playerUsesBlaster then
-        local dmgReductionFactor = t.Result / t.Damage
-        damage = damage + tryToPerformAmbush(t, onHitMonster, isMelee) * dmgReductionFactor
-        tryToPerformGreaterCleave(t, onHitMonster, isMelee) 
-        tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitMonster, isMelee)
-        tryToPerformApplyMonsterBuff(t.Player, t.Monster, onHitMonster, isMelee)
-        damage = damage + tryToPerformCrit(t, onHitMonster, isMelee) * dmgReductionFactor
-        damage = damage + tryToPerformExtraDamageOnMonsterCondition(t, onHitMonster, isMelee) * dmgReductionFactor
-        damage = damage + tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitMonster, isMelee) * dmgReductionFactor
-        damage = damage + tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitMonster, isMelee) * dmgReductionFactor
-    end
-
-    damage = damage + tryToPerformInstantKill(t, onHitMonster, isMelee)
-
-    -- if true damage then use t.Damage instead of t.Result
-    if tryToPerformTrueDamage(t, onHitMonster, isMelee) then
-        damage = damage + t.Damage
-    else 
-        damage = damage + t.Result
-    end 
-
-    t.Result = damage
-end
-
-
-function events.CalcDamageToPlayer(t) 
-
-    local attacker = WhoHitPlayer()
-    if attacker.MonsterIndex == nil then
-        -- if a monster was not the souce then we do not want to proc effects
-        return
-    end
-
-    -- monster can be used to perform revengeful single target attacks.
-    local monster = Map.Monsters[attacker.MonsterIndex]
-    -- Greater cleaver counter attack
-    tryToPerformGreaterCleave(t, onHitPlayer, nil)
-    tryToPerformApplyMonsterBuff(t.Player, monster, onHitPlayer, nil)
-    tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitPlayer, nil)
-
-    local damageFactor = tryToPerformBlock(t, onHitPlayer)
-    -- damageFactor 1 is full damage, damageFactor 0 is no damage, 0.5 is half damage
-    t.Result = t.Result * damageFactor
-    
-end
-
-
 function extraDmgWhenPlayerHPInThreshold(player, monster, weaponTxt, lowerThreshold, higherThreshold, multiplier) 
     local damage = 0
     local ratioHPLeft = player.HP / player:GetFullHP()
@@ -712,31 +726,6 @@ function extraDmgWhenMonsterHPIsInThreshold(player, monster, weaponTxt, lowerThr
         damage = calcWeaponDmg(weaponTxt, player) * multiplier
     end
     return damage
-end
-
-
-
-function events.ItemAdditionalDamage(t)
-    -- local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Armsmaster])
-    -- t.Player.Skills[const.Skills.Armsmaster] = JoinSkill(math.max(wskill, 10), math.max(wmastery, const.GM))
-    local itemSkill = Game.ItemsTxt[t.Item.Number].Skill
-    -- bow
-    local isMelee = itemSkill ~= 5 
-
-    local damage = 0
-    damage = damage + tryToPerformAmbush(t, onHitMonster, isMelee)
-
-    tryToPerformGreaterCleave(t, onHitMonster, isMelee)
-    tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitMonster, isMelee)
-    tryToPerformApplyMonsterBuff(t.Player, t.Monster, onHitMonster, isMelee)
-
-    damage = damage + tryToPerformCrit(t, onHitMonster, isMelee)
-
-    damage = damage + tryToPerformExtraDamageOnMonsterCondition(t, onHitMonster, isMelee)
-    damage = damage + tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitMonster, isMelee)
-    damage = damage + tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitMonster, isMelee)
-
-    t.Result = damage
 end
 
 function greaterCleave(weaponTxt, monsterIndex, multiplier, player)
@@ -959,7 +948,6 @@ if not WhoHitMonster then
 		end
 	end
 end
-
 
 -- function tprint (t, s)
 --     for k, v in pairs(t) do
