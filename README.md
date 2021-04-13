@@ -86,7 +86,7 @@ To interpret fields like Chance (1) see [Weapon effect fields](#weapon-effect-fi
 
 #### Staff
 - Deals additional damage on monsters that are stunned, paralyzed or fleeing, but with a lower damage multiplier then mace (Multiplier 1).
-Bonus: Staff used with Unarmed GM also give the Unarmed weapon effect
+###### Bonus: Staff used with Unarmed GM also give the Unarmed weapon effect
 
 #### Spear
 - Extra damage when player is below 50% hp (Multiplier 1)
