@@ -615,9 +615,8 @@ function getWeaponsEffectAvailability(player, onHitEventType, weaponEffectId, is
     local missileSkill = weapons.missile ~= nil and weapons.missile.Skill or const.Skills.Unarmed
     local availableMissile = isWeaponEffectAvailableOnWeapon(player, onHitEventType, weaponEffectId, weapons.missile, missileSkill, nil)
 
-    -- -- -- Blasters are not implemented
-    --  Blasters will only get benefit of shields.
-    if mainSkill == const.Skills.Blaster and extraSkill == const.Skills.Shield then
+    --  Blasters will only get extra hand if in melee
+    if mainSkill == const.Skills.Blaster and isMelee then
         return {
             ["main"] = availableMainHand,
             ["extra"] = availableExtraHand
@@ -948,6 +947,7 @@ if not WhoHitMonster then
 		end
 	end
 end
+
 
 -- function tprint (t, s)
 --     for k, v in pairs(t) do
