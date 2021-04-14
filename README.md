@@ -51,7 +51,7 @@ Some weapon effects can only be used in one of these contexts while others can b
 Most weapon effects that deal bonus damage will do weapon damage if armed and unarmed damage if unarmed
 
 Weapon damage:
-- Weapons dice damage + damage modifier. If weapon has 2d3 + 4 it will do 7-10 damage.
+- Weapons dice damage + damage modifier. If weapon has 2d3 + 4 it will do 6-10 damage.
 
 Unarmed damage:
 - 1d3 + unarmed skill damage + strength bonus
