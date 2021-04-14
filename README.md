@@ -89,7 +89,7 @@ To interpret fields like Chance (1) see [Weapon effect fields](#weapon-effect-fi
 ###### Bonus: Staff used with Unarmed GM also give the Unarmed weapon effect
 
 #### Spear
-- Extra damage when player is below 50% hp (Multiplier 1)
+- Extra damage when player is below 75% hp. The damage will increase the lower the players hp is. The formula is Multiplier - HP /FullHP (Multiplier 2)
 ###### Used 2-handed or with shield
 - Extra damage when player is below 50% hp (Multiplier 1)
 - True damage, passes physical damage reduction as long as the monster is not immune to physical damage
@@ -155,6 +155,10 @@ Higher Threshold is inclusive, in the examples above one of the requirements for
 If higher threshold is 0.5 then HP needs to be equal or below 50%, if higher threshold is 1 then the criteria is automatically achieved.
 
 
+#### Scale - wefScale
+Used by weExtraDamageWhenPlayerCondition. If set to scaleWithLowHP it will deal additonal damage the lower the players HP/FullHP ratio is, if set to scaleWithHighHP it will deal additional damage the higher the HP/FullHP ratio is.
+
+
 ## Weapon effects required fields
 
 #### Ambush - weAmbush
@@ -194,6 +198,7 @@ If higher threshold is 0.5 then HP needs to be equal or below 50%, if higher thr
 - Lower Threshold - wefLowerThreshold
 - Higher Threshold - wefHigherThreshold
 - Multiplier - wefMultiplier
+- Scale - wefScale (optional)
 
 #### Apply monster buff - weApplyMonsterBuff
 - Chance - wefChance

@@ -25,8 +25,12 @@ local wefAIState = 4
 local wefLowerThreshold = 5
 local wefHigherThreshold = 6
 local wefPower = 7
-local wefExtraReqs = 8
-local wefMastery = 9 --minimum required mastery
+local wefScale = 8
+local wefExtraReqs = 9
+local wefMastery = 10 --minimum required mastery
+
+local scaleWithLowHP = 1
+local scaleWithHighHP = 2
 
 -- all of these needs unique numbers
 local reqsMasteriesOr = 1
@@ -55,10 +59,11 @@ local instantKill = {
 local extraDmgPlayerLowHp = {
     -- player hp between (inclusive) 0-50%
     [wefLowerThreshold] = 0,
-    [wefHigherThreshold] = 0.5,
-    [wefMultiplier] = 1,
+    [wefHigherThreshold] = 0.75,
+    [wefMultiplier] = 2,
     [wefMastery] = const.GM,
-    [wefChance] = 100
+    [wefChance] = 100,
+    [wefScale] = scaleWithLowHP
 }
 
 local trueDamage = {
@@ -290,8 +295,8 @@ local weaponEffects = {
 }
 
 function events.ItemAdditionalDamage(t)
-    -- local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Armsmaster])
-    -- t.Player.Skills[const.Skills.Armsmaster] = JoinSkill(math.max(wskill, 10), math.max(wmastery, const.GM))
+    local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Spear])
+    t.Player.Skills[const.Skills.Spear] = JoinSkill(math.max(wskill, 20), math.max(1343, const.GM))
     local itemSkill = Game.ItemsTxt[t.Item.Number].Skill
     local isMelee = itemSkill ~= const.Skills.Bow 
 
@@ -575,8 +580,9 @@ function tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitEventType, isMelee
             if calcIfWeaponEffectProcs(skill, chance, t.Player) then
                 local lowerThreshold = wEffect[wefLowerThreshold]
                 local higherThreshold = wEffect[wefHigherThreshold]
+                local scale = wEffect[wefScale]
                 local multiplier = wEffect[wefMultiplier]
-                damage = damage + extraDmgWhenPlayerHPInThreshold(t.Player, t.Monster, weapons[weaponSlot], lowerThreshold, higherThreshold, multiplier)
+                damage = damage + extraDmgWhenPlayerHPInThreshold(t.Player, t.Monster, weapons[weaponSlot], lowerThreshold, higherThreshold, multiplier, scale)
             end
         end
     end 
@@ -709,11 +715,19 @@ function getPlayerWeapons(player)
     }
 end
 
-function extraDmgWhenPlayerHPInThreshold(player, monster, weaponTxt, lowerThreshold, higherThreshold, multiplier) 
+function extraDmgWhenPlayerHPInThreshold(player, monster, weaponTxt, lowerThreshold, higherThreshold, multiplier, scale) 
     local damage = 0
     local ratioHPLeft = player.HP / player:GetFullHP()
+
+    local effectiveMultiplier = multiplier
+    if scale == scaleWithLowHP then
+        effectiveMultiplier = multiplier - player.HP / player:GetFullHP()
+    elseif scaleWithHighHP then 
+        effectiveMultiplier = multiplier + player.HP / player:GetFullHP()
+    end
+
     if ratioHPLeft <= higherThreshold and ratioHPLeft >= lowerThreshold then
-        damage = calcWeaponDmg(weaponTxt, player) * multiplier - player.HP / player:GetFullHP() -- HP / FullHP is a hard coded logic where lower hp means better, should fix this
+        damage = math.floor(calcWeaponDmg(weaponTxt, player) * effectiveMultiplier)
     end
     return damage
 end
