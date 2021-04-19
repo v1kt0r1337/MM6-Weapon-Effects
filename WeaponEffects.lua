@@ -1,3 +1,38 @@
+
+function merge(...)
+    local result = {}
+    for _, t in ipairs{...} do
+        for k, v in pairs(t) do
+            result[k] = v
+        end
+        local mt = getmetatable(t)
+        if mt then
+            setmetatable(result, mt)
+        end
+        end
+    return result
+end
+
+function clone(object)
+    local lookup_table = {}
+    local function copy(object) 
+        if type(object) ~= "table" then
+            return object
+        elseif lookup_table[object] then
+            return lookup_table[object]
+        end
+        local new_table = {}
+        lookup_table[object] = new_table
+        for key, value in pairs(object) do
+            new_table[copy(key)] = copy(value)
+        end
+        return setmetatable(new_table, getmetatable(object))
+    end
+    return copy(object)
+end
+
+
+
 local LogId = "mmtestLog"
 local Log = Log
 
@@ -5,17 +40,17 @@ local Log = Log
 local onHitMonster = 1
 local onHitPlayer = 2
 -- weapon effect. Al of these needs unique numbers
-local weBlock = 1   -- implemented   -- melee only
+local weBlock = 1   -- implemented
 local weCrit = 2  -- implemented
 local weInstantKill = 3   -- implemented 
 local weTrueDamage = 4    -- implemented
-local weGreaterCleave = 5 -- implemented   -- melee only
+local weGreaterCleave = 5 -- implemented 
 local weExtraDamageOnMonsterCondition = 6 -- implemented
 local weExtraDamageWhenMonsterHPThreshold = 7 -- implemented
 local weExtraDamageWhenPlayerHPThreshold = 8 -- implemented
 local weApplyMonsterBuff = 9 -- implemented
 local weAmbush = 10 -- implemented
-local weApplyMonsterBuffOnAllInMeleeRange = 11    -- implemented  -- melee only
+local weApplyMonsterBuffOnAllInMeleeRange = 11    -- implemented
 local weExtraDamageWhenPlayerCondition = 12 -- not implemented
 -- weapon effect field. all of these needs unique numbers
 local wefMultiplier = 1
@@ -26,34 +61,51 @@ local wefLowerThreshold = 5
 local wefHigherThreshold = 6
 local wefPower = 7
 local wefScale = 8
-local wefExtraReqs = 9
-local wefMastery = 10 --minimum required mastery
+local wefGameStatusText = 9
+local wefExtraReqs = 10
+local wefMastery = 11 --minimum required mastery
 
 local scaleWithLowHP = 1
 local scaleWithHighHP = 2
 
+local statusText = 1
+local textPosition = 2
+local textPositionPre = 3
+local textPositionPost = 4
+
 -- all of these needs unique numbers
 local reqsMasteriesOr = 1
--- local reqsOtherHand = 2
+local reqsOtherHand = 2
 -- local reqsMainHand = 2
 -- local reqsMissile = 4
 
-
 local crit = {
-    [wefChance] = 100,
+    [wefChance] = 1,
     [wefMultiplier] = 2,
-    -- [wefMastery] = const.GM
+    [wefMastery] = const.GM,
+    [wefGameStatusText] = {
+        [statusText] = "critical",
+        [textPosition] = textPositionPre,
+    } 
 }
 
 local greaterCleave = {
     [wefChance] = 1,
     [wefMastery] = const.GM,
-    [wefMultiplier] = 1
+    [wefMultiplier] = 1,
+    [wefGameStatusText] = {
+        [statusText] = "cleaves",
+        [textPosition] = textPositionPost,
+    } 
 }
 
 local instantKill = {
     [wefChance] = 0.5,
-    [wefMastery] = const.GM
+    [wefMastery] = const.GM,
+    [wefGameStatusText] = {
+        [statusText] = "executes",
+        [textPosition] = textPositionPre,
+    } 
 }
 
 local extraDmgPlayerLowHp = {
@@ -63,18 +115,26 @@ local extraDmgPlayerLowHp = {
     [wefMultiplier] = 2,
     [wefMastery] = const.GM,
     [wefChance] = 100,
-    [wefScale] = scaleWithLowHP
+    [wefScale] = scaleWithLowHP,
+    [wefGameStatusText] = {
+        [statusText] = "angrily hits",
+        [textPosition] = textPositionPre,
+    } 
 }
 
 local trueDamage = {
     [wefMastery] = const.GM,
     [wefChance] = 100,
     [wefExtraReqs] = {
-        reqsOtherHand = {
+        [reqsOtherHand] = {
             [const.Skills.Shield] = true,
             [const.Skills.Unarmed] = true   
         }
-    }
+    },
+    [wefGameStatusText] = {
+        [statusText] = "true",
+        [textPosition] = textPositionPre,
+    } 
 }
 
 local extraDmgMonsterLowHp = {
@@ -83,7 +143,11 @@ local extraDmgMonsterLowHp = {
     [wefHigherThreshold] = 0.5,
     [wefMultiplier] = 1,
     [wefMastery] = const.GM,
-    [wefChance] = 100
+    [wefChance] = 100,
+    [wefGameStatusText] = {
+        [statusText] = "punish",
+        [textPosition] = textPositionPre,
+    } 
 }
 
 local extraDmgWhenMonsterIsStunnedOrParalyzed = {
@@ -93,15 +157,23 @@ local extraDmgWhenMonsterIsStunnedOrParalyzed = {
     },
     [wefMastery] = const.GM,
     [wefMultiplier] = 2,                    
-    [wefChance] = 100
+    [wefChance] = 100,
+    [wefGameStatusText] = {
+        [statusText] = "brutalize",
+        [textPosition] = textPositionPre,
+    } 
 }
 
-local applyStunToAllMonstersInMelee = {
+local applyParalyzeToAllMonstersInMelee = {
     [wefChance] = 1,
     [wefMastery] = const.GM,
     [wefDuration] = 2, -- * const.Minute  (Minute / 2 == second)s
     -- https://grayface.github.io/mm/ext/ref/#const.MonsterBuff
-    [wefPower] = 5
+    [wefPower] = 6,
+    [wefGameStatusText] = { 
+        [statusText] = "slams shield in a wide circle",
+        [textPosition] = textPositionPre,
+    } 
 }
 
 local block = { -- works on both weapon and shield
@@ -109,13 +181,21 @@ local block = { -- works on both weapon and shield
     [wefChance] = 1,
     -- damageFactor of 0 completely negates all damage, 
     [wefMultiplier] = 0,
-    [wefMastery] = const.GM
+    [wefMastery] = const.GM,
+    [wefGameStatusText] = {
+        [statusText] = "parries",
+        [textPosition] = textPositionPre,
+    } 
 }
 
 local defaultAmbushMultiplier = 1
 
 local ambush = {
-    [wefMultiplier] = defaultAmbushMultiplier
+    [wefMultiplier] = defaultAmbushMultiplier,
+    [wefGameStatusText] = {
+        [statusText] = "ambush",
+        [textPosition] = textPositionPre,
+    } 
 }
 
 local allOnHitMonsterEffects = {
@@ -126,14 +206,14 @@ local allOnHitMonsterEffects = {
     [weExtraDamageWhenPlayerHPThreshold] = extraDmgPlayerLowHp,
     [weTrueDamage] = trueDamage,
     [weExtraDamageOnMonsterCondition] = extraDmgWhenMonsterIsStunnedOrParalyzed,
-    [weApplyMonsterBuffOnAllInMeleeRange] = applyStunToAllMonstersInMelee,
+    [weApplyMonsterBuffOnAllInMeleeRange] = applyParalyzeToAllMonstersInMelee,
     [weExtraDamageWhenMonsterHPThreshold] = extraDmgMonsterLowHp
 }
 
 local allOnHitPlayerEffects = {
     [weBlock] = block,
     [weGreaterCleave] = greaterCleave, -- cleave should not be on shield
-    [weApplyMonsterBuffOnAllInMeleeRange] = applyStunToAllMonstersInMelee,
+    [weApplyMonsterBuffOnAllInMeleeRange] = applyParalyzeToAllMonstersInMelee,
 }
 
 local weaponEffects = {
@@ -152,23 +232,16 @@ local weaponEffects = {
                     [wefMultiplier] = 1,
                     [wefChance] = 100
                 },
-                [weExtraDamageWhenMonsterHPThreshold] = {
-                    -- monster hp between (inclusive) 0-50%
-                    [wefLowerThreshold] = 0,
-                    [wefHigherThreshold] = 0.5,
-                    [wefMultiplier] = 1,
-                    [wefMastery] = const.GM,
-                    [wefChance] = 100,
-                    [wefExtraReqs] = {
+                [weExtraDamageWhenMonsterHPThreshold] = merge(extraDmgMonsterLowHp, 
+                    {[wefExtraReqs] = {
                         [reqsMasteriesOr] = {
                             -- Makes this weapon effect only available to Monks 
                             [const.Skills.Unarmed] = const.GM,
                         }
-                    }
-                },
+                     }}
+                )
             },
             [onHitPlayer] = {
-                
             }
         }
     },
@@ -218,7 +291,10 @@ local weaponEffects = {
                 [weGreaterCleave] = greaterCleave             
             },
             [onHitPlayer] = {
-                [weGreaterCleave] = greaterCleave           
+                [weGreaterCleave] = merge(greaterCleave, {[wefGameStatusText] = {
+                    [statusText] = "revenge cleaves",
+                    [textPosition] = textPositionPre,
+                }})           
             }
         }
     },
@@ -240,7 +316,6 @@ local weaponEffects = {
                 [weAmbush] = ambush
             },
             [onHitPlayer] = {
-                -- not recommended
             }
         }
     },
@@ -261,7 +336,7 @@ local weaponEffects = {
                 
             },
             [onHitPlayer] = {
-                [weApplyMonsterBuffOnAllInMeleeRange] = applyStunToAllMonstersInMelee
+                [weApplyMonsterBuffOnAllInMeleeRange] = applyParalyzeToAllMonstersInMelee
             }
         }
     },
@@ -275,7 +350,6 @@ local weaponEffects = {
         }
     },
     [const.Skills.Blaster] = { 
-    -- Blasters are not implemented
         [const.ItemType.Weapon - 1] = {
             [onHitMonster] = {
                 [weAmbush] = ambush,
@@ -288,38 +362,231 @@ local weaponEffects = {
                 -- },
             },
             [onHitPlayer] = {
-                -- not recommended
             }
         },
     },
 }
 
+
+-- Effects triggered in ItemAdditionalDamage will be shown to player in CalcDamageToMonster
 function events.ItemAdditionalDamage(t)
-    local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Spear])
-    t.Player.Skills[const.Skills.Spear] = JoinSkill(math.max(wskill, 20), math.max(1343, const.GM))
-    local itemSkill = Game.ItemsTxt[t.Item.Number].Skill
-    local isMelee = itemSkill ~= const.Skills.Bow 
-
+    local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Unarmed])
+    t.Player.Skills[const.Skills.Unarmed] = JoinSkill(math.max(wskill, 20), math.max(1343, const.GM))
+    local activeSkill = Game.ItemsTxt[t.Item.Number].Skill
     local damage = 0
-    damage = damage + tryToPerformAmbush(t, onHitMonster, isMelee)
+    damage = damage + tryToPerformAmbush(t, onHitMonster, activeSkill)
+    tryToPerformGreaterCleave(t, onHitMonster, activeSkill)
+    tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitMonster, activeSkill)
+    tryToPerformApplyMonsterBuff(t.Player, t.Monster, onHitMonster, activeSkill)
 
-    tryToPerformGreaterCleave(t, onHitMonster, isMelee)
-    tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitMonster, isMelee)
-    tryToPerformApplyMonsterBuff(t.Player, t.Monster, onHitMonster, isMelee)
+    damage = damage + tryToPerformCrit(t, onHitMonster, activeSkill)
 
-    damage = damage + tryToPerformCrit(t, onHitMonster, isMelee)
-
-    damage = damage + tryToPerformExtraDamageOnMonsterCondition(t, onHitMonster, isMelee)
-    damage = damage + tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitMonster, isMelee)
-    damage = damage + tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitMonster, isMelee)
+    damage = damage + tryToPerformExtraDamageOnMonsterCondition(t, onHitMonster, activeSkill)
+    damage = damage + tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitMonster, activeSkill)
+    damage = damage + tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitMonster, activeSkill)
 
     t.Result = damage
+end
 
-    -- local function DisplayStatusText() 
-    --     Game.ShowStatusText("instant kill " .. damage)
-    --     RemoveTimer(DisplayStatusText)
-    -- end
-    -- Timer(DisplayStatusText, nil, Game.Time + 3)
+local defaultEventTracker = {
+    totalCalcDamageToMonsters = 0,
+    currentCalcDamageToMonster = 0,
+    damageDone = 0,
+    cleaveDamage = 0,
+    kills = 0,
+    paralyze = 0,
+    textPositionPre = {
+        -- [weEffect] = {
+        --  text = "",
+        --  power (optional) = 6
+        -- }
+    },
+    textPositionPost = {
+        -- [weEffect] = {
+        --  text = "",
+        --  power (optional) = 6
+        -- }
+    }
+}
+
+local eventTracker = clone(defaultEventTracker)
+
+function InitiateNewAttackEventRound(player) 
+    eventTracker.totalCalcDamageToMonsters = GetTotalCalcDamageToMonsters(player)
+end 
+
+function GetTotalCalcDamageToMonsters(player) 
+    local weapons = getPlayerWeapons(player)
+    mainSkill = weapons.main ~= nil and weapons.main.Skill or const.Skills.Unarmed
+    if isMelee == false and mainSkill ~= const.Skills.Blaster then
+        return 2
+    end
+    
+    if mainSkill == const.Skills.Blaster or (mainSkill == const.Skills.Unarmed and weapons.extra == nil) then
+        return 1
+    end
+
+    local extraSkill = weapons.extra ~= nil and weapons.extra.Skill or const.Skills.Unarmed
+    if extraSkill == const.Skills.Unarmed or extraSkill == const.Skills.Shield then
+        return 2
+    end
+    return 3
+end
+
+function ShowStatusTextOnHitMonster(player, monster) 
+    -- vanilla text
+    -- Player.Name hits MonsterName for x damage
+    -- Player.Name stuns MonsterName
+    -- Player.Name inflicts x points killing MonsterName
+    local function DisplayStatusText() 
+        local statusText = player.Name
+        local textPositionPre = eventTracker.textPositionPre
+        if textPositionPre ~= nil then
+            for wEffectId, effectStatus in pairs(textPositionPre) do
+                statusText = statusText .. " " .. effectStatus.text
+            end
+        end
+        local damage = eventTracker.damageDone
+        local monsterName = monster.Name or Game.MonstersTxt[monster.Id].Name or ""
+        if  monster.HP - damage < 1 then
+            statusText = statusText .. " for " .. tostring(damage) .. " dmg killing " .. monsterName
+        else 
+            statusText = statusText .. " " .. monsterName .. " for " .. tostring(damage) .. " dmg" 
+        end
+        local isFirstPostPosition = true
+        local textPositionPost = eventTracker.textPositionPost
+        if textPositionPost ~= nil then
+            for wEffectId, effectStatus in pairs(textPositionPost) do
+                if isFirstPostPosition then
+                    statusText = statusText .. " and"
+                    isFirstPostPosition = false
+                end
+                statusText = statusText .. " " .. effectStatus.text
+                if wEffectId == weGreaterCleave then
+                    statusText = statusText .. " for " .. eventTracker.cleaveDamage .. " dmg"
+                    if eventTracker.kills > 0 then
+                        statusText = statusText .. " killing " .. eventTracker.kills .. "!"
+                    end
+                end
+            end
+        end
+        Game.ShowStatusText(statusText)
+        eventTracker = clone(defaultEventTracker)
+        RemoveTimer(DisplayStatusText)
+    end
+    if next(eventTracker.textPositionPre) ~= nil or next(eventTracker.textPositionPost) ~= nil then
+        Timer(DisplayStatusText, nil, Game.Time)
+    else 
+        eventTracker = clone(defaultEventTracker)
+    end
+end
+
+function GetPlayerEquipedWeaponSkills(player) 
+    local weapons = getPlayerWeapons(player)
+    local mainSkill = weapons.main ~= nil and weapons.main.Skill or const.Skills.Unarmed
+    local extraSkill = weapons.extra ~= nil and weapons.extra.Skill or const.Skills.Unarmed 
+    local missileSkill = weapons.missile ~= nil and weapons.missile.Skill or nil
+    return {
+        main = mainSkill,
+        extra = extraSkill,
+        missle = missileSkill
+    } 
+end 
+
+function ShowStatusTextOnHitPlayer(player) 
+    -- think this needs to be declared localy or we will get problems with it repeating again and again.
+    local function DisplayStatusText() 
+        local statusText = player.Name
+        local textPositionPre = eventTracker.textPositionPre
+        if textPositionPre ~= nil then
+            local hasPreText = false
+            for wEffectId, effectStatus in pairs(textPositionPre) do
+                hasPreText = true
+                statusText = statusText .. " " .. effectStatus.text
+
+                if wEffectId == weGreaterCleave then
+                    statusText = statusText .. " for " .. eventTracker.cleaveDamage .. " dmg"
+                    if eventTracker.kills > 0 then
+                        statusText = statusText .. " killing " .. eventTracker.kills .. "!"
+                    end
+                end
+                if effectStatus.power == const.MonsterBuff.Paralyze then
+                    if eventTracker.paralyze > 0 then
+                        statusText = statusText .. " paralyzing " .. eventTracker.paralyze .. "!"
+                    else 
+                        statusText = statusText .. " hitting only air!"
+                    end
+                end
+            end
+        end
+
+        local textPositionPost = eventTracker.textPositionPost
+        if textPositionPost ~= nil then
+            local isFirstPostPosition = true
+            for wEffectId, effectStatus in pairs(textPositionPost) do
+                if isFirstPostPosition and hasPreText then
+                    statusText = statusText .. " and "
+                    isFirstPostPosition = false
+                end
+                statusText = statusText .. " " .. effectStatus.text
+                if wEffectId == weGreaterCleave then
+                    statusText = statusText .. " for " .. eventTracker.cleaveDamage .. "dmg"
+                    if eventTracker.kills > 0 then
+                        statusText = statusText .. " killing " .. eventTracker.kills .. "!"
+                    end
+                end
+                if effectStatus.power == const.MonsterBuff.Paralyze then
+                    if eventTracker.paralyze > 0 then
+                        statusText = statusText .. " paralyzing " .. eventTracker.paralyze .. "!"
+                    else 
+                        statusText = statusText .. " hitting only air!"
+                    end
+                end
+            end
+        end
+        Game.ShowStatusText(statusText)
+        eventTracker = clone(defaultEventTracker)
+        RemoveTimer(DisplayStatusText)
+    end
+    if next(eventTracker.textPositionPre) ~= nil or next(eventTracker.textPositionPost) ~= nil then
+        Timer(DisplayStatusText, nil, Game.Time)
+    else 
+        eventTracker = clone(defaultEventTracker)
+    end
+end
+
+
+-- Will return nil on first round of CalcDamageToMonstersEvent if not using Unarmed or Blaster
+function getActiveSkillBasedOnCurrentCalcDamageToMonstersEvent(player, monster, isMelee)
+    local itemMain = player.ItemMainHand ~= 0 and Game.ItemsTxt[player.Items[player.ItemMainHand].Number] or nil
+    local mainSkill = itemMain ~= nil and itemMain.Skill or const.Skills.Unarmed
+
+    if isMelee ~= true and mainSkill ~= const.Skills.Blaster then
+        return const.Skills.Bow
+    end
+
+    local itemExtra = player.ItemExtraHand ~= 0 and Game.ItemsTxt[player.Items[player.ItemExtraHand].Number] or nil
+    local extraSkill = itemExtra ~= nil and itemExtra.Skill or const.Skills.Unarmed
+
+    if eventTracker.currentCalcDamageToMonster == 1 then
+        if mainSkill == const.Skills.Blaster then
+            return mainSkill 
+        elseif mainSkill == const.Skills.Unarmed and ekstraSkill == const.Skills.Unarmed or extraSkill == const.Skills.Shield then
+            return mainSkill
+        else return nil
+        end 
+        
+        return mainSkill == const.Skills.Blaster and const.Skills.Blaster or mainSkill == const.Skills.Unarmed 
+    elseif eventTracker.currentCalcDamageToMonster == 3 then
+        -- check on Unarmed is not valid because it will not trigger 3 times if extra hand is unarmed 
+        return extraSkill
+    else -- currentCalcDamageToMonster == 2 is usually main hand, but if player has unarmed or blaster in main hand and a dagger or sword in extra hand then it can be extra hand 
+        if mainSkill == const.Skills.Blaster or mainSkill == const.Skills.Unarmed then
+            return extraSkill
+        else  
+            return mainSkill
+        end
+    end
 end
 
 function events.CalcDamageToMonster(t)
@@ -327,335 +594,376 @@ function events.CalcDamageToMonster(t)
     if t.Player == nil then
         return
     end
-
     -- Ensure we don't do extra damage to monsters immune to physical damage, probably not wise even with blaster
     if t.Monster.PhysResistance == 200 then
         return
     end
 
-    local itemMain =  t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number] or nil
-
-    local playerUsesBlaster = itemMain ~= nil and itemMain.Skill == const.Skills.Blaster
-    -- Weapon Effects should only trigger on Phys damage or blaster attacks
-    if t.DamageKind ~= const.Damage.Phys and t.DamageKind ~= 12 then 
+    local isMelee = isMonsterInMeleeRange(t.Monster)
+    local activeSkill = getActiveSkillBasedOnCurrentCalcDamageToMonstersEvent(t.Player, t.Monster, isMelee)
+    
+    -- Weapon Effects should only trigger on Phys damage or blaster attacks.
+    -- DamageKind 0 seems to be used when its additional item damage
+    if t.DamageKind ~= const.Damage.Phys and t.DamageKind ~= 12 and t.DamageKind ~= 0 then 
         return
-    elseif t.DamageKind == 12 and playerUsesBlaster ~= true then 
-
+    elseif t.DamageKind == 12 and activeSkill ~= const.Skills.Blaster then 
         return
     end
-
+    
+    if eventTracker.totalCalcDamageToMonsters == 0 then
+        InitiateNewAttackEventRound(t.Player)
+    end
+    eventTracker.currentCalcDamageToMonster = eventTracker.currentCalcDamageToMonster + 1
+    
     local damage = 0
-    local isMelee = isMonsterInMeleeRange(Map.Monsters[t.MonsterIndex])
-
+    local itemMain = t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number] or nil
+    local mainSkill = itemMain == nil and const.Skills.Unarmed or itemMain.Skill
     -- This is needed to be able to proc skills with unarmed attacks or blasters
-    if (isMelee and t.Player.ItemMainHand == 0) or playerUsesBlaster then
+    if (isMelee and t.Player.ItemMainHand == 0) or activeSkill == const.Skills.Blaster then
         local dmgReductionFactor = t.Result / t.Damage
-        damage = damage + tryToPerformAmbush(t, onHitMonster, isMelee) * dmgReductionFactor
-        tryToPerformGreaterCleave(t, onHitMonster, isMelee) 
-        tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitMonster, isMelee)
-        tryToPerformApplyMonsterBuff(t.Player, t.Monster, onHitMonster, isMelee)
-        damage = damage + tryToPerformCrit(t, onHitMonster, isMelee) * dmgReductionFactor
-        damage = damage + tryToPerformExtraDamageOnMonsterCondition(t, onHitMonster, isMelee) * dmgReductionFactor
-        damage = damage + tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitMonster, isMelee) * dmgReductionFactor
-        damage = damage + tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitMonster, isMelee) * dmgReductionFactor
+        damage = damage + tryToPerformAmbush(t, onHitMonster, mainSkill) * dmgReductionFactor
+        tryToPerformGreaterCleave(t, onHitMonster, mainSkill) 
+        tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitMonster, mainSkill)
+        tryToPerformApplyMonsterBuff(t.Player, t.Monster, onHitMonster, mainSkill)
+        damage = damage + tryToPerformCrit(t, onHitMonster, mainSkill) * dmgReductionFactor
+        damage = damage + tryToPerformExtraDamageOnMonsterCondition(t, onHitMonster, mainSkill) * dmgReductionFactor
+        damage = damage + tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitMonster, mainSkill) * dmgReductionFactor
+        damage = damage + tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitMonster, mainSkill) * dmgReductionFactor
     end
 
-    damage = damage + tryToPerformInstantKill(t, onHitMonster, isMelee)
+    if activeSkill ~= nil then
+        damage = damage + tryToPerformInstantKill(t, onHitMonster, activeSkill)
+    end
 
     -- if true damage then use t.Damage instead of t.Result
-    if tryToPerformTrueDamage(t, onHitMonster, isMelee) then
+    -- if active skill is nil its we will use the mainSkill as we want it to become true damage if main skill has the requirement
+    if tryToPerformTrueDamage(t, onHitMonster, activeSkill or mainSkill) then
         damage = damage + t.Damage
     else 
         damage = damage + t.Result
     end 
 
+    -- if this is the last CalcDamageToMonster in the attack then it's time to show the status text
+    if eventTracker.totalCalcDamageToMonsters == eventTracker.currentCalcDamageToMonster then
+        ShowStatusTextOnHitMonster(t.Player, t.Monster)
+    end
+
     t.Result = damage
+    eventTracker.damageDone = eventTracker.damageDone + t.Result
 end
 
 function events.CalcDamageToPlayer(t) 
     local attacker = WhoHitPlayer()
+    if attacker == nil then
+        -- if a monster was not the souce then we do not want to proc effects
+        return 
+    end
     if attacker.MonsterIndex == nil then
         -- if a monster was not the souce then we do not want to proc effects
-        return
+        return 
     end
 
     -- monster can be used to perform revengeful single target attacks.
     local monster = Map.Monsters[attacker.MonsterIndex]
+    local equipedSkills = GetPlayerEquipedWeaponSkills(t.Player)
+    local damageFactor = 1
+    for slot, skill in pairs(equipedSkills) do
     -- Greater cleaver counter attack
-    tryToPerformGreaterCleave(t, onHitPlayer, nil)
-    tryToPerformApplyMonsterBuff(t.Player, monster, onHitPlayer, nil)
-    tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitPlayer, nil)
+        tryToPerformGreaterCleave(t, onHitPlayer, skill)
+        tryToPerformApplyMonsterBuff(t.Player, monster, onHitPlayer, skill)
+        tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitPlayer, skill)
+        -- damageFactors stacks if two procs reduce damage with a factor of 0.5 the result will be 0.25
+        damageFactor = damageFactor * tryToPerformBlock(t, onHitPlayer, skill)
+    end
 
-    local damageFactor = tryToPerformBlock(t, onHitPlayer)
     -- damageFactor 1 is full damage, damageFactor 0 is no damage, 0.5 is half damage
     t.Result = t.Result * damageFactor
-
+    ShowStatusTextOnHitPlayer(t.Player)
 end
 
-local function tryToPerformTrueDamage(t, onHitEventType, isMelee)
-    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weTrueDamage, isMelee)
+function tryToPerformTrueDamage(t, onHitEventType, activeSkill)
+    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weTrueDamage, activeSkill)
     local weapons = getPlayerWeapons(t.Player)
-    for weaponSlot, available in pairs(availability) do
-        if available then
-            -- try to perform true damage
-            local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
-            local wEffect = getWeaponEffect(onHitEventType, weTrueDamage, weapons[weaponSlot], activeSkill)
-            local chance = wEffect[wefChance]
-            local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
-            if calcIfWeaponEffectProcs(skill, chance, t.Player) then
-                return true
-            end
+    local available = availability.available
+    if available then
+        -- try to perform true damage
+        local activeSlot = availability.activeSlot
+        local wEffect = getWeaponEffect(onHitEventType, weTrueDamage, weapons[activeSlot], activeSkill)
+        local chance = wEffect[wefChance]
+        local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
+        if calcIfWeaponEffectProcs(skill, chance, t.Player) then
+            AddStatusText({wEffect = wEffect, wEffectId = weTrueDamage})
+            return true
         end
     end
     return false
 end
 
-local function tryToPerformInstantKill(t, onHitEventType, isMelee) 
+function tryToPerformInstantKill(t, onHitEventType, activeSkill) 
     local damage = 0
-    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType,weInstantKill, isMelee)
+    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weInstantKill, activeSkill)
     local weapons = getPlayerWeapons(t.Player)
+    local available = availability.available
+    if available then
+        -- try to perform the kill
+        local activeSlot = availability.activeSlot
+        local wEffect = getWeaponEffect(onHitEventType, weInstantKill, weapons[activeSlot], activeSkill)
+        local chance = wEffect[wefChance]
 
-    for weaponSlot, available in pairs(availability) do
-        if available then
-            -- try to perform the kill
-            local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
-            local wEffect = getWeaponEffect(onHitEventType, weInstantKill, weapons[weaponSlot], activeSkill)
-            local chance = wEffect[wefChance]
-
-            local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
-            if calcIfWeaponEffectProcs(skill, chance, t.Player) then
-                -- could return t.Monster.HP, but the potential for double proc dmg is cooler!
-                damage = damage + t.Monster.HP
-            end
+        local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
+        if calcIfWeaponEffectProcs(skill, chance, t.Player) then
+            damage = damage + t.Monster.HP
+            AddStatusText({wEffect = wEffect, wEffectId = weInstantKill})
         end
-    end 
-    return damage
+    end
+    return damage  
 end
 
-local function tryToPerformGreaterCleave(t, onHitEventType, isMelee) 
-    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weGreaterCleave, isMelee)
+function tryToPerformGreaterCleave(t, onHitEventType, activeSkill) 
+    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weGreaterCleave, activeSkill)
     local weapons = getPlayerWeapons(t.Player)
-    for weaponSlot, available in pairs(availability) do
+    local available = availability.available
 
-        if available then
-            local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
-            local wEffect = getWeaponEffect(onHitEventType, weGreaterCleave, weapons[weaponSlot], activeSkill)
-            local chance = wEffect[wefChance]
-            local multiplier = wEffect[wefMultiplier]
-            local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
-            if calcIfWeaponEffectProcs(skill, chance, t.Player) then
-                greaterCleave(weapons[weaponSlot], t.MonsterIndex, multiplier, t.Player)
+    if available then
+        local activeSlot = availability.activeSlot
+        local wEffect = getWeaponEffect(onHitEventType, weGreaterCleave, weapons[activeSlot], activeSkill)
+        local chance = wEffect[wefChance]
+        local multiplier = wEffect[wefMultiplier]
+        local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
+        if calcIfWeaponEffectProcs(skill, chance, t.Player) then
+            greaterCleave(weapons[activeSlot], t.MonsterIndex, multiplier, t.Player)
+            if eventTracker.cleaveDamage > 0 then
+                AddStatusText({wEffect = wEffect, wEffectId = weGreaterCleave})
             end
         end
-    end 
+    end
 end
 
-local function tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitEventType, isMelee)
-    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weApplyMonsterBuffOnAllInMeleeRange, isMelee)
+function tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitEventType, activeSkill)
+    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weApplyMonsterBuffOnAllInMeleeRange, activeSkill)
     local weapons = getPlayerWeapons(t.Player)
-    for weaponSlot, available in pairs(availability) do
-        if available then
-            local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
-            local wEffect = getWeaponEffect(onHitEventType, weApplyMonsterBuffOnAllInMeleeRange, weapons[weaponSlot], activeSkill)
-            local chance = wEffect[wefChance]
-            local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
-            if calcIfWeaponEffectProcs(skill, chance, t.Player) then
-                local duration = wEffect[wefDuration]
-                local power = wEffect[wefPower]
-                applyMonsterBuffOnAllInMeleeRange(duration, power)
-            end
+    local available = availability.available
+
+    if available then
+        local activeSlot = availability.activeSlot
+        local wEffect = getWeaponEffect(onHitEventType, weApplyMonsterBuffOnAllInMeleeRange, weapons[activeSlot], activeSkill)
+        local chance = wEffect[wefChance]
+        local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
+        if calcIfWeaponEffectProcs(skill, chance, t.Player) then
+            local duration = wEffect[wefDuration]
+            local power = wEffect[wefPower]
+            applyMonsterBuffOnAllInMeleeRange(duration, power)
+            AddStatusText({wEffect = wEffect, wEffectId = weApplyMonsterBuffOnAllInMeleeRange, power = power})
         end
-    end 
+    end
 end
 
 
-local function tryToPerformApplyMonsterBuff(player, monster, onHitEventType, isMelee)
-    local availability = getWeaponsEffectAvailability(player, onHitEventType, weApplyMonsterBuff, isMelee)
+function tryToPerformApplyMonsterBuff(player, monster, onHitEventType, activeSkill)
+    local availability = getWeaponsEffectAvailability(player, onHitEventType, weApplyMonsterBuff, activeSkill)
     local weapons = getPlayerWeapons(player)
-    for weaponSlot, available in pairs(availability) do
-        if available then
-            local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
-            local wEffect = getWeaponEffect(onHitEventType, weApplyMonsterBuff, weapons[weaponSlot], activeSkill)
-            local chance = wEffect[wefChance]
-            local skill, mastery = SplitSkill(player.Skills[activeSkill])
-            if calcIfWeaponEffectProcs(skill, chance, player) then
-                local duration = wEffect[wefDuration]
-                local power = wEffect[wefPower]
-                applyMonsterBuff(monster, duration, power)
-            end
+    local available = availability.available
+
+    if available then
+        local activeSlot = availability.activeSlot
+        local wEffect = getWeaponEffect(onHitEventType, weApplyMonsterBuff, weapons[activeSlot], activeSkill)
+        local chance = wEffect[wefChance]
+        local skill, mastery = SplitSkill(player.Skills[activeSkill])
+        if calcIfWeaponEffectProcs(skill, chance, player) then
+            local duration = wEffect[wefDuration]
+            local power = wEffect[wefPower]
+            AddStatusText({wEffect = wEffect, wEffectId = weApplyMonsterBuff, power = power})
+            applyMonsterBuff(monster, duration, power)
         end
-    end 
+    end
 end
 
 -- returns damage factor, if 1 then damage is unchanged, if 0 then all damage is blocked, if 0.5 50% of the dmg is blocked. result = damage * damageFactor
-local function tryToPerformBlock(t, onHitEventType) 
-    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weBlock )
+function tryToPerformBlock(t, onHitEventType, activeSkill) 
+    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weBlock, activeSkill )
     local weapons = getPlayerWeapons(t.Player)
-    for weaponSlot, available in pairs(availability) do
-        if available then
-            local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
-            local wEffect = getWeaponEffect(onHitEventType, weBlock, weapons[weaponSlot], activeSkill)
-            local chance = wEffect[wefChance]
-            local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
-            if calcIfWeaponEffectProcs(skill, chance, t.Player) then
-                return wEffect[wefMultiplier]
-            end
+    local available = availability.available
+
+    if available then
+        local activeSlot = availability.activeSlot
+        local wEffect = getWeaponEffect(onHitEventType, weBlock, weapons[activeSlot], activeSkill)
+        local chance = wEffect[wefChance]
+        local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
+        if calcIfWeaponEffectProcs(skill, chance, t.Player) then
+            AddStatusText({wEffect = wEffect, wEffectId = weBlock})
+            return wEffect[wefMultiplier]
         end
-    end 
+    end     
     return 1
 end
 
-local function tryToPerformCrit(t, onHitEventType, isMelee) 
-    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weCrit, isMelee)
+function tryToPerformCrit(t, onHitEventType, activeSkill)
+    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weCrit, activeSkill)
     local weapons = getPlayerWeapons(t.Player)
-    
     local damage = 0
-    for weaponSlot, available in pairs(availability) do
-        if available then
-            local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
-            local wEffect = getWeaponEffect(onHitEventType, weCrit, weapons[weaponSlot], activeSkill)
-            local chance = wEffect[wefChance]
-            local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
-            if calcIfWeaponEffectProcs(skill, chance, t.Player) then
-                damage = damage + calcCritDmg(weapons[weaponSlot], wEffect[wefMultiplier], t.Player)           
-            end
+    local available = availability.available
+    if available then
+        local activeSlot = availability.activeSlot
+        local wEffect = getWeaponEffect(onHitEventType, weCrit, weapons[activeSlot], activeSkill)
+        local chance = wEffect[wefChance]
+        local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
+        if calcIfWeaponEffectProcs(skill, chance, t.Player) then
+            damage = damage + calcCritDmg(weapons[activeSlot], wEffect[wefMultiplier], t.Player)           
+            AddStatusText({wEffect = wEffect, wEffectId = weCrit})
         end
-    end 
+    end
     return damage
 end
 
-local function tryToPerformExtraDamageOnMonsterCondition(t, onHitEventType, isMelee) 
-    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType,weExtraDamageOnMonsterCondition, isMelee)
+function tryToPerformExtraDamageOnMonsterCondition(t, onHitEventType, activeSkill) 
+    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType,weExtraDamageOnMonsterCondition, activeSkill)
     local weapons = getPlayerWeapons(t.Player)
-    
     local damage = 0
-    for weaponSlot, available in pairs(availability) do
-        if available then
-            local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
-            local wEffect = getWeaponEffect(onHitEventType, weExtraDamageOnMonsterCondition, weapons[weaponSlot], activeSkill)
-            local AIState = wEffect[wefAIState]
-            if AIState[t.Monster.AIState] then 
-                local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
-                local chance = wEffect[wefChance]
-                if calcIfWeaponEffectProcs(skill, chance, t.Player) then
-                    local multiplier = wEffect[wefMultiplier]
-                    local extraDmg = calcWeaponDmg( weapons[weaponSlot], t.Player) * multiplier      
-                    damage = damage + extraDmg
-                end
-            end
-        end
-    end 
-    return damage
-end
+    local available = availability.available
 
-local function tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitEventType, isMelee) 
-    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType,weExtraDamageWhenMonsterHPThreshold, isMelee)
-    local weapons = getPlayerWeapons(t.Player)
-    
-    local damage = 0
-    for weaponSlot, available in pairs(availability) do
-        if available then
-            local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
-            local wEffect = getWeaponEffect(onHitEventType, weExtraDamageWhenMonsterHPThreshold, weapons[weaponSlot], activeSkill)
-
+    if available then
+        local activeSlot = availability.activeSlot
+        local wEffect = getWeaponEffect(onHitEventType, weExtraDamageOnMonsterCondition, weapons[activeSlot], activeSkill)
+        local AIState = wEffect[wefAIState]
+        if AIState[t.Monster.AIState] then 
             local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
             local chance = wEffect[wefChance]
             if calcIfWeaponEffectProcs(skill, chance, t.Player) then
-                local lowerThreshold = wEffect[wefLowerThreshold]
-                local higherThreshold = wEffect[wefHigherThreshold]
                 local multiplier = wEffect[wefMultiplier]
-                damage = damage + extraDmgWhenMonsterHPIsInThreshold(t.Player, t.Monster, weapons[weaponSlot], lowerThreshold, higherThreshold, multiplier) 
+                local extraDmg = calcWeaponDmg( weapons[activeSlot], t.Player) * multiplier      
+                damage = damage + extraDmg
+                AddStatusText({wEffect = wEffect, wEffectId = weExtraDamageOnMonsterCondition})
             end
         end
-    end 
+    end
     return damage
 end
 
-local function tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitEventType, isMelee) 
-    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType,weExtraDamageWhenPlayerHPThreshold, isMelee)
+function tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitEventType, activeSkill) 
+    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType,weExtraDamageWhenMonsterHPThreshold, activeSkill)
     local weapons = getPlayerWeapons(t.Player)
-    
     local damage = 0
-    for weaponSlot, available in pairs(availability) do
-        if available then
-            local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
-            local wEffect = getWeaponEffect(onHitEventType, weExtraDamageWhenPlayerHPThreshold, weapons[weaponSlot], activeSkill)
+    local available = availability.available
+    if available then
+        local activeSlot = availability.activeSlot
+        local wEffect = getWeaponEffect(onHitEventType, weExtraDamageWhenMonsterHPThreshold, weapons[activeSlot], activeSkill)
 
-            local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
-            local chance = wEffect[wefChance]
-            if calcIfWeaponEffectProcs(skill, chance, t.Player) then
-                local lowerThreshold = wEffect[wefLowerThreshold]
-                local higherThreshold = wEffect[wefHigherThreshold]
-                local scale = wEffect[wefScale]
-                local multiplier = wEffect[wefMultiplier]
-                damage = damage + extraDmgWhenPlayerHPInThreshold(t.Player, t.Monster, weapons[weaponSlot], lowerThreshold, higherThreshold, multiplier, scale)
+        local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
+        local chance = wEffect[wefChance]
+        if calcIfWeaponEffectProcs(skill, chance, t.Player) then
+            local lowerThreshold = wEffect[wefLowerThreshold]
+            local higherThreshold = wEffect[wefHigherThreshold]
+            local multiplier = wEffect[wefMultiplier]
+            damage = damage + extraDmgWhenMonsterHPIsInThreshold(t.Player, t.Monster, weapons[activeSlot], lowerThreshold, higherThreshold, multiplier) 
+            if damage > 0 then
+                AddStatusText({wEffect = wEffect, wEffectId = weExtraDamageWhenMonsterHPThreshold})
             end
         end
-    end 
+    end
     return damage
 end
 
-local function tryToPerformAmbush(t, onHitEventType, isMelee) 
+function tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitEventType, activeSkill) 
+    local availability = getWeaponsEffectAvailability(t.Player, onHitEventType,weExtraDamageWhenPlayerHPThreshold, activeSkill)
+    local weapons = getPlayerWeapons(t.Player)
     local damage = 0
-    -- https://grayface.github.io/mm/ext/ref/#const.AIState
-    -- 9 fidget, 0 standing, 1 active, 10 interacting (friendly standing infront of party)
-    if t.Monster.HP == t.Monster.FullHP and (t.Monster.AIState == 9 or t.Monster.AIState == 0 or t.Monster.AIState == 1 or t.Monster.AIState == 10) then
-        local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weAmbush, isMelee)
-        local weapons = getPlayerWeapons(t.Player)
-        
-        for weaponSlot, available in pairs(availability) do
-            if available then
-                local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
-                local wEffect = getWeaponEffect(onHitEventType, weAmbush, weapons[weaponSlot], activeSkill)
-                local multiplier = wEffect[wefMultiplier]
-                local ambushDmg = calcWeaponDmg(weapons[weaponSlot], t.Player) * multiplier
-                damage = damage + ambushDmg
+    local available = availability.available
+
+    if available then
+        local activeSlot = availability.activeSlot
+        local wEffect = getWeaponEffect(onHitEventType, weExtraDamageWhenPlayerHPThreshold, weapons[activeSlot], activeSkill)
+        local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
+        local chance = wEffect[wefChance]
+        if calcIfWeaponEffectProcs(skill, chance, t.Player) then
+            local lowerThreshold = wEffect[wefLowerThreshold]
+            local higherThreshold = wEffect[wefHigherThreshold]
+            local scale = wEffect[wefScale]
+            local multiplier = wEffect[wefMultiplier]
+            damage = damage + extraDmgWhenPlayerHPInThreshold(t.Player, t.Monster, weapons[activeSlot], lowerThreshold, higherThreshold, multiplier, scale)
+            if damage > 0 then
+                AddStatusText({wEffect = wEffect, wEffectId = weExtraDamageWhenPlayerHPThreshold})
             end
-        end 
+        end
     end
 
     return damage
 end
 
-local function getWeaponsEffectAvailability(player, onHitEventType, weaponEffectId, isMelee) 
+function tryToPerformAmbush(t, onHitEventType, activeSkill)
+    local damage = 0
+    -- https://grayface.github.io/mm/ext/ref/#const.AIState
+    -- had to remove t.Monster.AIState == 0 because monster enters this state during combat
+    -- 9 fidget, 0 standing, 1 active, 10 interacting (friendly standing infront of party). 
+    if t.Monster.HP == t.Monster.FullHP and (t.Monster.AIState == 9 or t.Monster.AIState == 1 or t.Monster.AIState == 10) then
+        MessageBox(t.Monster.AIState)
+        local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weAmbush, activeSkill)
+        local weapons = getPlayerWeapons(t.Player)
+        local available = availability.available
+        -- for weaponSlot, available in pairs(availability) do
+        if available then
+            local activeSlot = availability.activeSlot
+            -- local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
+            local wEffect = getWeaponEffect(onHitEventType, weAmbush, weapons[activeSlot], activeSkill)
+            local multiplier = wEffect[wefMultiplier]
+            local ambushDmg = calcWeaponDmg(weapons[activeSlot], t.Player) * multiplier
+            damage = damage + ambushDmg
+            if damage > 0 then 
+                AddStatusText({wEffect = wEffect, wEffectId = weAmbush})
+            end
+        end
+    end
+    return damage
+end
+
+function AddStatusText(t)
+    local wEffect = t.wEffect
+    local wEffectId = t.wEffectId
+    local power = t.power
+    
+    if wEffect[wefGameStatusText][textPosition] == textPositionPost then
+        eventTracker.textPositionPost[wEffectId] = {
+            text = wEffect[wefGameStatusText][statusText],
+            power = power,
+        }
+    else 
+        eventTracker.textPositionPre[wEffectId] = {
+            text = wEffect[wefGameStatusText][statusText],
+            power = power,
+        }
+    end
+end
+
+
+function getWeaponsEffectAvailability(player, onHitEventType, weaponEffectId, activeSkill) 
     local weapons = getPlayerWeapons(player)
 
     local mainSkill = weapons.main ~= nil and weapons.main.Skill or const.Skills.Unarmed
     local extraSkill = weapons.extra ~= nil and weapons.extra.Skill or const.Skills.Unarmed
-    local availableMainHand = isWeaponEffectAvailableOnWeapon(player, onHitEventType, weaponEffectId, weapons.main, mainSkill, extraSkill)
-    local availableExtraHand = isWeaponEffectAvailableOnWeapon(player, onHitEventType, weaponEffectId, weapons.extra, extraSkill, mainSkill)
     local missileSkill = weapons.missile ~= nil and weapons.missile.Skill or const.Skills.Unarmed
-    local availableMissile = isWeaponEffectAvailableOnWeapon(player, onHitEventType, weaponEffectId, weapons.missile, missileSkill, nil)
 
-    --  Blasters will only get extra hand if in melee
-    if mainSkill == const.Skills.Blaster and isMelee then
-        return {
-            ["main"] = availableMainHand,
-            ["extra"] = availableExtraHand
-        }
-    elseif mainSkill == const.Skills.Blaster then
-        return {
-            ["main"] = availableMainHand,
-        }
-    elseif isMelee then
-        return {
-            ["main"] = availableMainHand,
-            ["extra"] = availableExtraHand
-        }
-    elseif isMelee == false then
-        return {
-            ["missile"] = availableMissile
-        }
-    else -- its an onHitPlayer event and all weapons can potentially have an effect
-        return {
-            ["main"] = availableMainHand,
-            ["extra"] = availableExtraHand,
-            ["missile"] = availableMissile
-        } 
+    local otherSkills = {}
+    local activeSlot
+    if activeSkill == mainSkill then
+        activeSlot = "main"
+        otherSkills.otherHand = extraSkill
+        otherSkills.missile = missileSkill
+    -- if player is dual wielding same weapon type it will in this context not matter which of the weapons is the actual trigger 
+    elseif activeSkill == extraSkill then
+        activeSlot = "extra"
+        otherSkills.otherHand = mainSkill
+        otherSkills.missile = missileSkill   
+    else 
+        activeSlot = "missile"
+        otherSkills.mainHand = mainSkill
+        otherSkills.otherHand = extraSkill   
     end
+
+    local available = isWeaponEffectAvailableOnWeapon(player, onHitEventType, weaponEffectId, weapons[activeSlot], activeSkill, otherSkills)
+
+    return {available = available, activeSlot = activeSlot};
 end
 
-local function isWeaponEffectAvailableOnWeapon(player, onHitEventType, weaponEffectId, activeWeapon, activeSkill, otherSkill) 
+function isWeaponEffectAvailableOnWeapon(player, onHitEventType, weaponEffectId, activeWeapon, activeSkill, otherSkills) 
     local effect = getWeaponEffect(onHitEventType, weaponEffectId, activeWeapon, activeSkill)
     if effect == nil then
         return false
@@ -681,9 +989,9 @@ local function isWeaponEffectAvailableOnWeapon(player, onHitEventType, weaponEff
                 return false
             end
         end
-        if extraReqs[reqsOtherHand] ~= nil and otherSkill ~= nil then
+        if extraReqs[reqsOtherHand] ~= nil then
             -- players other hand needs to employ a certain skill to be able to use the weapon effect 
-            if extraReqs[reqsOtherHand][otherSkill] == false then
+            if extraReqs[reqsOtherHand][otherSkills.otherHand] ~= true then
                 return false
             end
         end
@@ -692,9 +1000,7 @@ local function isWeaponEffectAvailableOnWeapon(player, onHitEventType, weaponEff
     return true
 end
 
--- cant use Weapon.Skill because if Unarmed then weapon is nil 
-local function getWeaponEffect(onHitEventType, weaponEffectId, weapon, skill)
-
+function getWeaponEffect(onHitEventType, weaponEffectId, weapon, skill)
     -- Deeper table nesting when skill is not Unarmed
     if (skill ~= const.Skills.Unarmed and skill ~= nil) then
         return weaponEffects[skill][weapon.EquipStat][onHitEventType][weaponEffectId]
@@ -703,7 +1009,7 @@ local function getWeaponEffect(onHitEventType, weaponEffectId, weapon, skill)
     end
 end
 
-local function getPlayerWeapons(player)
+function getPlayerWeapons(player)
     local mainHand = player.ItemMainHand  
     local extraHand = player.ItemExtraHand 
     local missileHand = player.ItemBow
@@ -721,7 +1027,7 @@ local function getPlayerWeapons(player)
     }
 end
 
-local function extraDmgWhenPlayerHPInThreshold(player, monster, weaponTxt, lowerThreshold, higherThreshold, multiplier, scale) 
+function extraDmgWhenPlayerHPInThreshold(player, monster, weaponTxt, lowerThreshold, higherThreshold, multiplier, scale) 
     local damage = 0
     local ratioHPLeft = player.HP / player:GetFullHP()
 
@@ -738,7 +1044,7 @@ local function extraDmgWhenPlayerHPInThreshold(player, monster, weaponTxt, lower
     return damage
 end
 
-local function extraDmgWhenMonsterHPIsInThreshold(player, monster, weaponTxt, lowerThreshold, higherThreshold, multiplier) 
+function extraDmgWhenMonsterHPIsInThreshold(player, monster, weaponTxt, lowerThreshold, higherThreshold, multiplier) 
     local damage = 0
     local ratioHPLeft = monster.HP / monster.FullHP
     if ratioHPLeft <= higherThreshold and ratioHPLeft >= lowerThreshold then
@@ -747,7 +1053,8 @@ local function extraDmgWhenMonsterHPIsInThreshold(player, monster, weaponTxt, lo
     return damage
 end
 
-local function greaterCleave(weaponTxt, monsterIndex, multiplier, player)
+-- Returns the number of effected targets
+function greaterCleave(weaponTxt, monsterIndex, multiplier, player)
     monsterIndex = monsterIndex or 0
     for i in Map.Monsters do
         -- avoid damaging the same monster an extra time
@@ -764,7 +1071,7 @@ local function greaterCleave(weaponTxt, monsterIndex, multiplier, player)
     end
 end
 
-local function applyMonsterBuffOnAllInMeleeRange(duration, power) 
+function applyMonsterBuffOnAllInMeleeRange(duration, power) 
     for i in Map.Monsters do
         local monster = Map.Monsters[i]
         if isMonsterInMeleeRange(monster) then
@@ -773,12 +1080,17 @@ local function applyMonsterBuffOnAllInMeleeRange(duration, power)
     end
 end
 
-local function applyMonsterBuff(monster, duration, power) 
+function applyMonsterBuff(monster, duration, power) 
+    evt.PlaySound(monster.SoundGetHit, monster.X, monster.Y)
     monster.SpellBuffs[power].ExpireTime = Game.Time + duration * const.Minute -- 1 Minute is 256 is game time, which in real time game play translate to 2 seconds.
+    if power == 6 then
+        eventTracker.paralyze = eventTracker.paralyze + 1
+    end
 end
 
-local function weaponDamageToMonsterOutsideAttackEvent(monster, monsterIndex, weaponTxt, multiplier, player) 
+function weaponDamageToMonsterOutsideAttackEvent(monster, monsterIndex, weaponTxt, multiplier, player) 
     local dmg = calcWeaponDmg(weaponTxt, player) * multiplier
+
     -- Avoids getting exp for monsters already killed
     if monster.HP > 0 and (monster.HP - dmg) < 1 then
         AddKillExp(monster.Experience)
@@ -789,13 +1101,15 @@ local function weaponDamageToMonsterOutsideAttackEvent(monster, monsterIndex, we
             ["Player"] = player,
         }
         events.cocall("MonsterKilled", monster, monsterIndex, nil, killer)
+        eventTracker.kills = eventTracker.kills + 1
     else
         evt.PlaySound(monster.SoundGetHit, monster.X, monster.Y)
     end
+    eventTracker.cleaveDamage = eventTracker.cleaveDamage + dmg
     monster.HP = monster.HP - dmg
 end
 
-local function calcIfWeaponEffectProcs(skill, chance, player) 
+function calcIfWeaponEffectProcs(skill, chance, player) 
     math.randomseed(os.time())
     -- First draft was: skill * chance + Game.GetStatisticEffect(player:GetLuck()) 
     -- howeverr this made it impossible to create effects with a guaranteed low chance off success
@@ -807,11 +1121,11 @@ local function calcIfWeaponEffectProcs(skill, chance, player)
 end
 
 -- multiplier can be a decimal or whole number 
-local function calcCritDmg(itemTxt, multiplier, player) 
+function calcCritDmg(itemTxt, multiplier, player) 
     return math.floor(calcWeaponDmg(itemTxt, player) * multiplier)
 end
 
-local function calcUnarmedDmg(player) 
+function calcUnarmedDmg(player) 
     local skill, mastery = SplitSkill(player.Skills[const.Skills.Unarmed])
     local unarmedSkillDmg = mastery == const.Expert and skill or mastery >= const.Master and skill * 2 or 0
     local diceDmg = castDices(3, 1)
@@ -820,7 +1134,7 @@ local function calcUnarmedDmg(player)
 end
 
 -- TODO: Rename to calcDmgType, then include a dmgType param that calls a new calcWeaponDmg if dmgType is weaponDmg
-local function calcWeaponDmg(itemTxt, player)
+function calcWeaponDmg(itemTxt, player)
     -- if attack is an unarmed attack itemTxt is nil
     if (itemTxt ~= nil) then 
         local diceDmg = castDices(itemTxt.Mod1DiceSides, itemTxt.Mod1DiceCount)
@@ -831,7 +1145,7 @@ local function calcWeaponDmg(itemTxt, player)
     end
 end
 
-local function castDices(sides, count) 
+function castDices(sides, count) 
     local result = 0;
     local dicesCast = 0;
     math.randomseed(os.time())
@@ -842,7 +1156,7 @@ local function castDices(sides, count)
     return result
 end
 
-local function isMonsterInMeleeRange(monster) 
+function isMonsterInMeleeRange(monster) 
     local deltaX = monster.X - Party.X
     local deltaY = monster.Y - Party.Y
     local deltaZ = monster.Z - Party.Z
@@ -852,15 +1166,15 @@ end
 
 local mmver = offsets.MMVersion
 
-local function mmv(...)
+function mmv(...)
 	return select(mmver - 5, ...)
 end
 
-local function mm78(...)
+function mm78(...)
 	return select(mmver - 5, nil, ...)
 end
 
-local function AddKillExp(exp) 
+function AddKillExp(exp) 
     mem.call(0x424D5B,2, exp)
 end
 
@@ -906,7 +1220,7 @@ if not WhoHitMonster then
 		hooks.asmhook(mm78(0x43B1D3, 0x438DDE), mon)  -- from monster
 	end
 	
-	local function Who(i)
+	function Who(i)
 		local t, kind = {}, i%8
 		i = (i - kind)/8
 		if kind == 2 then
@@ -928,7 +1242,7 @@ if not WhoHitMonster then
 	-- #t.Player:structs.Player# and 't.PlayerIndex' are set if monster is attacked by the party.
 	-- #t.Monster:structs.MapMonster#, 't.MonsterIndex' and #t.MonsterAction:const.MonsterAction# fields are set if monster is attacked by another monster.
 	-- #t.Object:structs.MapObject# and 't.ObjectIndex' are set if monster is hit by a missile.
-	local function WhoHitMonster()
+	function WhoHitMonster()
 		local i = u4[p]
 		if i ~= 0 then
 			local t, i = Who(i), u4[p + 4]
@@ -960,7 +1274,7 @@ if not WhoHitMonster then
 	-- If party is being attacked, returns 't', 'PlayerSlot'
 	-- #t.Monster:structs.MapMonster#, 't.MonsterIndex' and #t.MonsterAction:const.MonsterAction# fields are set if player is attacked by a monster.
 	-- #t.Object:structs.MapObject# and 't.ObjectIndex' are set if player is hit by a missile.
-	local function WhoHitPlayer()
+	function WhoHitPlayer()
 		local i = u4[p]
 		if i ~= 0 then
 			return Who(i), u4[p + 4]
@@ -968,21 +1282,20 @@ if not WhoHitMonster then
 	end
 end
 
-
--- local function tprint (t, s)
---     for k, v in pairs(t) do
---         local kfmt = '["' .. tostring(k) ..'"]'
---         if type(k) ~= 'string' then
---             kfmt = '[' .. k .. ']'
---         end
---         local vfmt = '"'.. tostring(v) ..'"'
---         if type(v) == 'table' then
---             tprint(v, (s or '')..kfmt)
---         else
---             if type(v) ~= 'string' then
---                 vfmt = tostring(v)
---             end
---             print(type(t)..(s or '')..kfmt..' = '..vfmt)
---         end
---     end
--- end
+function tprint (t, s)
+    for k, v in pairs(t) do
+        local kfmt = '["' .. tostring(k) ..'"]'
+        if type(k) ~= 'string' then
+            kfmt = '[' .. k .. ']'
+        end
+        local vfmt = '"'.. tostring(v) ..'"'
+        if type(v) == 'table' then
+            tprint(v, (s or '')..kfmt)
+        else
+            if type(v) ~= 'string' then
+                vfmt = tostring(v)
+            end
+            print(type(t)..(s or '')..kfmt..' = '..vfmt)
+        end
+    end
+end

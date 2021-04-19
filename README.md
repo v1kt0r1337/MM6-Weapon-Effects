@@ -59,7 +59,7 @@ Unarmed damage:
 In addition the multiplier field is used. A multiplier of 1 will leave the damage unchanged, a multiplier of 2 will double the damage and a multiplier of 0.5 will halve the damage. For more about multiplier see [Multiplier - wefMultiplier](#multiplier-wefmultiplier)
 
 ## Default loadout (short version)
-All weapons including blasters and bow have the ambush effect which gives extra damage to unaware monsters (and peasants!) with full hp. 
+All weapons including blasters and bow have the ambush effect which gives extra damage to unaware monsters (and peasants!) with full hp that are not in watch mode (unfortunately AIState standing also happens during combat). 
 To interpret fields like Chance (1) see [Weapon effect fields](#weapon-effect-fields).
 
 #### Axe
