@@ -1,38 +1,3 @@
-
-function merge(...)
-    local result = {}
-    for _, t in ipairs{...} do
-        for k, v in pairs(t) do
-            result[k] = v
-        end
-        local mt = getmetatable(t)
-        if mt then
-            setmetatable(result, mt)
-        end
-        end
-    return result
-end
-
-function clone(object)
-    local lookup_table = {}
-    local function copy(object) 
-        if type(object) ~= "table" then
-            return object
-        elseif lookup_table[object] then
-            return lookup_table[object]
-        end
-        local new_table = {}
-        lookup_table[object] = new_table
-        for key, value in pairs(object) do
-            new_table[copy(key)] = copy(value)
-        end
-        return setmetatable(new_table, getmetatable(object))
-    end
-    return copy(object)
-end
-
-
-
 local LogId = "mmtestLog"
 local Log = Log
 
@@ -370,8 +335,8 @@ local weaponEffects = {
 
 -- Effects triggered in ItemAdditionalDamage will be shown to player in CalcDamageToMonster
 function events.ItemAdditionalDamage(t)
-    local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Unarmed])
-    t.Player.Skills[const.Skills.Unarmed] = JoinSkill(math.max(wskill, 20), math.max(1343, const.GM))
+    -- local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Unarmed])
+    -- t.Player.Skills[const.Skills.Unarmed] = JoinSkill(math.max(wskill, 20), math.max(1343, const.GM))
     local activeSkill = Game.ItemsTxt[t.Item.Number].Skill
     local damage = 0
     damage = damage + tryToPerformAmbush(t, onHitMonster, activeSkill)
@@ -384,7 +349,6 @@ function events.ItemAdditionalDamage(t)
     damage = damage + tryToPerformExtraDamageOnMonsterCondition(t, onHitMonster, activeSkill)
     damage = damage + tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitMonster, activeSkill)
     damage = damage + tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitMonster, activeSkill)
-
     t.Result = damage
 end
 
@@ -560,14 +524,12 @@ end
 function getActiveSkillBasedOnCurrentCalcDamageToMonstersEvent(player, monster, isMelee)
     local itemMain = player.ItemMainHand ~= 0 and Game.ItemsTxt[player.Items[player.ItemMainHand].Number] or nil
     local mainSkill = itemMain ~= nil and itemMain.Skill or const.Skills.Unarmed
-
     if isMelee ~= true and mainSkill ~= const.Skills.Blaster then
         return const.Skills.Bow
     end
 
     local itemExtra = player.ItemExtraHand ~= 0 and Game.ItemsTxt[player.Items[player.ItemExtraHand].Number] or nil
     local extraSkill = itemExtra ~= nil and itemExtra.Skill or const.Skills.Unarmed
-
     if eventTracker.currentCalcDamageToMonster == 1 then
         if mainSkill == const.Skills.Blaster then
             return mainSkill 
@@ -600,13 +562,15 @@ function events.CalcDamageToMonster(t)
     end
 
     local isMelee = isMonsterInMeleeRange(t.Monster)
-    local activeSkill = getActiveSkillBasedOnCurrentCalcDamageToMonstersEvent(t.Player, t.Monster, isMelee)
-    
+    -- local itemMain =  t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number] or nil
+
+    local playerUsesBlaster =  t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number].Skill == const.Skills.Blaster or false
+    -- itemMain ~= nil and itemMain.Skill == const.Skills.Blaster
     -- Weapon Effects should only trigger on Phys damage or blaster attacks.
     -- DamageKind 0 seems to be used when its additional item damage
     if t.DamageKind ~= const.Damage.Phys and t.DamageKind ~= 12 and t.DamageKind ~= 0 then 
         return
-    elseif t.DamageKind == 12 and activeSkill ~= const.Skills.Blaster then 
+    elseif t.DamageKind == 12 and playerUsesBlaster == false then 
         return
     end
     
@@ -614,12 +578,14 @@ function events.CalcDamageToMonster(t)
         InitiateNewAttackEventRound(t.Player)
     end
     eventTracker.currentCalcDamageToMonster = eventTracker.currentCalcDamageToMonster + 1
+    -- activeSkill needs to be extracted after InitiateNewAttackEventRound
+    local activeSkill = getActiveSkillBasedOnCurrentCalcDamageToMonstersEvent(t.Player, t.Monster, isMelee)
     
     local damage = 0
     local itemMain = t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number] or nil
     local mainSkill = itemMain == nil and const.Skills.Unarmed or itemMain.Skill
     -- This is needed to be able to proc skills with unarmed attacks or blasters
-    if (isMelee and t.Player.ItemMainHand == 0) or activeSkill == const.Skills.Blaster then
+    if (isMelee and t.Player.ItemMainHand == 0 and activeSkill ~= const.Skills.Shield ) or activeSkill == const.Skills.Blaster then
         local dmgReductionFactor = t.Result / t.Damage
         damage = damage + tryToPerformAmbush(t, onHitMonster, mainSkill) * dmgReductionFactor
         tryToPerformGreaterCleave(t, onHitMonster, mainSkill) 
@@ -630,11 +596,9 @@ function events.CalcDamageToMonster(t)
         damage = damage + tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitMonster, mainSkill) * dmgReductionFactor
         damage = damage + tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitMonster, mainSkill) * dmgReductionFactor
     end
-
     if activeSkill ~= nil then
         damage = damage + tryToPerformInstantKill(t, onHitMonster, activeSkill)
     end
-
     -- if true damage then use t.Damage instead of t.Result
     -- if active skill is nil its we will use the mainSkill as we want it to become true damage if main skill has the requirement
     if tryToPerformTrueDamage(t, onHitMonster, activeSkill or mainSkill) then
@@ -642,12 +606,11 @@ function events.CalcDamageToMonster(t)
     else 
         damage = damage + t.Result
     end 
-
+    
     -- if this is the last CalcDamageToMonster in the attack then it's time to show the status text
     if eventTracker.totalCalcDamageToMonsters == eventTracker.currentCalcDamageToMonster then
         ShowStatusTextOnHitMonster(t.Player, t.Monster)
     end
-
     t.Result = damage
     eventTracker.damageDone = eventTracker.damageDone + t.Result
 end
@@ -895,7 +858,6 @@ function tryToPerformAmbush(t, onHitEventType, activeSkill)
     -- had to remove t.Monster.AIState == 0 because monster enters this state during combat
     -- 9 fidget, 0 standing, 1 active, 10 interacting (friendly standing infront of party). 
     if t.Monster.HP == t.Monster.FullHP and (t.Monster.AIState == 9 or t.Monster.AIState == 1 or t.Monster.AIState == 10) then
-        MessageBox(t.Monster.AIState)
         local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weAmbush, activeSkill)
         local weapons = getPlayerWeapons(t.Player)
         local available = availability.available
@@ -1178,6 +1140,7 @@ function AddKillExp(exp)
     mem.call(0x424D5B,2, exp)
 end
 
+
 --- 
 -- GrayFace — Today at 6:56 AM
 -- @viktor This should solve the problem
@@ -1281,6 +1244,39 @@ if not WhoHitMonster then
 		end
 	end
 end
+
+function merge(...)
+    local result = {}
+    for _, t in ipairs{...} do
+        for k, v in pairs(t) do
+            result[k] = v
+        end
+        local mt = getmetatable(t)
+        if mt then
+            setmetatable(result, mt)
+        end
+        end
+    return result
+end
+
+function clone(object)
+    local lookup_table = {}
+    local function copy(object) 
+        if type(object) ~= "table" then
+            return object
+        elseif lookup_table[object] then
+            return lookup_table[object]
+        end
+        local new_table = {}
+        lookup_table[object] = new_table
+        for key, value in pairs(object) do
+            new_table[copy(key)] = copy(value)
+        end
+        return setmetatable(new_table, getmetatable(object))
+    end
+    return copy(object)
+end
+
 
 function tprint (t, s)
     for k, v in pairs(t) do
