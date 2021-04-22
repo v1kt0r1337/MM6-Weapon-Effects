@@ -1,7 +1,3 @@
--- Check staff and mace, there is some weird shit going on, 
--- GameStatus is also off
---
-
 local LogId = "mmtestLog"
 local Log = Log
 
