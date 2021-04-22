@@ -1,6 +1,9 @@
+-- Check staff and mace, there is some weird shit going on, 
+-- GameStatus is also off
+--
+
 local LogId = "mmtestLog"
 local Log = Log
-
 
 local onHitMonster = 1
 local onHitPlayer = 2
@@ -181,6 +184,38 @@ local allOnHitPlayerEffects = {
     [weApplyMonsterBuffOnAllInMeleeRange] = applyParalyzeToAllMonstersInMelee,
 }
 
+function merge(...)
+    local result = {}
+    for _, t in ipairs{...} do
+        for k, v in pairs(t) do
+            result[k] = v
+        end
+        local mt = getmetatable(t)
+        if mt then
+            setmetatable(result, mt)
+        end
+        end
+    return result
+end
+
+function deepCopy(object)
+    local lookup_table = {}
+    local function copy(object) 
+        if type(object) ~= "table" then
+            return object
+        elseif lookup_table[object] then
+            return lookup_table[object]
+        end
+        local new_table = {}
+        lookup_table[object] = new_table
+        for key, value in pairs(object) do
+            new_table[copy(key)] = copy(value)
+        end
+        return setmetatable(new_table, getmetatable(object))
+    end
+    return copy(object)
+end
+
 local weaponEffects = {
     [const.Skills.Staff] = {
         -- Accessed by using struct.ItemsTxtItem.EquipStat so needs to subtract 1 from const.ItemType value
@@ -192,10 +227,14 @@ local weaponEffects = {
                         [const.AIState.Paralyzed] = true,
                         [const.AIState.Stunned] = true,
                         [const.AIState.Flee] = true,
-                        [wefMastery] = const.GM
                     },
+                    [wefMastery] = const.GM,
                     [wefMultiplier] = 1,
-                    [wefChance] = 100
+                    [wefChance] = 100,
+                    [wefGameStatusText] = {
+                        [statusText] = "brutalize",
+                        [textPosition] = textPositionPre,
+                    } 
                 },
                 [weExtraDamageWhenMonsterHPThreshold] = merge(extraDmgMonsterLowHp, 
                     {[wefExtraReqs] = {
@@ -333,6 +372,8 @@ local weaponEffects = {
 }
 
 
+
+
 -- Effects triggered in ItemAdditionalDamage will be shown to player in CalcDamageToMonster
 function events.ItemAdditionalDamage(t)
     -- local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Unarmed])
@@ -373,7 +414,7 @@ local defaultEventTracker = {
     }
 }
 
-local eventTracker = clone(defaultEventTracker)
+local eventTracker = deepCopy(defaultEventTracker)
 
 function InitiateNewAttackEventRound(player) 
     eventTracker.totalCalcDamageToMonsters = GetTotalCalcDamageToMonsters(player)
@@ -391,7 +432,7 @@ function GetTotalCalcDamageToMonsters(player)
     end
 
     local extraSkill = weapons.extra ~= nil and weapons.extra.Skill or const.Skills.Unarmed
-    if extraSkill == const.Skills.Unarmed or extraSkill == const.Skills.Shield then
+    if extraSkill == const.Skills.Unarmed then
         return 2
     end
     return 3
@@ -435,13 +476,13 @@ function ShowStatusTextOnHitMonster(player, monster)
             end
         end
         Game.ShowStatusText(statusText)
-        eventTracker = clone(defaultEventTracker)
+        eventTracker = deepCopy(defaultEventTracker)
         RemoveTimer(DisplayStatusText)
     end
     if next(eventTracker.textPositionPre) ~= nil or next(eventTracker.textPositionPost) ~= nil then
         Timer(DisplayStatusText, nil, Game.Time)
     else 
-        eventTracker = clone(defaultEventTracker)
+        eventTracker = deepCopy(defaultEventTracker)
     end
 end
 
@@ -509,16 +550,15 @@ function ShowStatusTextOnHitPlayer(player)
             end
         end
         Game.ShowStatusText(statusText)
-        eventTracker = clone(defaultEventTracker)
+        eventTracker = deepCopy(defaultEventTracker)
         RemoveTimer(DisplayStatusText)
     end
     if next(eventTracker.textPositionPre) ~= nil or next(eventTracker.textPositionPost) ~= nil then
         Timer(DisplayStatusText, nil, Game.Time)
     else 
-        eventTracker = clone(defaultEventTracker)
+        eventTracker = deepCopy(defaultEventTracker)
     end
 end
-
 
 -- Will return nil on first round of CalcDamageToMonstersEvent if not using Unarmed or Blaster
 function getActiveSkillBasedOnCurrentCalcDamageToMonstersEvent(player, monster, isMelee)
@@ -562,10 +602,8 @@ function events.CalcDamageToMonster(t)
     end
 
     local isMelee = isMonsterInMeleeRange(t.Monster)
-    -- local itemMain =  t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number] or nil
 
-    local playerUsesBlaster =  t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number].Skill == const.Skills.Blaster or false
-    -- itemMain ~= nil and itemMain.Skill == const.Skills.Blaster
+    local playerUsesBlaster = t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number].Skill == const.Skills.Blaster or false
     -- Weapon Effects should only trigger on Phys damage or blaster attacks.
     -- DamageKind 0 seems to be used when its additional item damage
     if t.DamageKind ~= const.Damage.Phys and t.DamageKind ~= 12 and t.DamageKind ~= 0 then 
@@ -585,20 +623,30 @@ function events.CalcDamageToMonster(t)
     local itemMain = t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number] or nil
     local mainSkill = itemMain == nil and const.Skills.Unarmed or itemMain.Skill
     -- This is needed to be able to proc skills with unarmed attacks or blasters
-    if (isMelee and t.Player.ItemMainHand == 0 and activeSkill ~= const.Skills.Shield ) or activeSkill == const.Skills.Blaster then
+    if (isMelee and t.Player.ItemMainHand == 0 and eventTracker.currentCalcDamageToMonster == 1 ) or activeSkill == const.Skills.Blaster then
+
         local dmgReductionFactor = t.Result / t.Damage
-        damage = damage + tryToPerformAmbush(t, onHitMonster, mainSkill) * dmgReductionFactor
+        damage = damage + tryToPerformAmbush(t, onHitMonster, mainSkill) -- * dmgReductionFactor
         tryToPerformGreaterCleave(t, onHitMonster, mainSkill) 
         tryToPerformApplyMonsterBuffOnAllInMeleeRange(t, onHitMonster, mainSkill)
         tryToPerformApplyMonsterBuff(t.Player, t.Monster, onHitMonster, mainSkill)
-        damage = damage + tryToPerformCrit(t, onHitMonster, mainSkill) * dmgReductionFactor
-        damage = damage + tryToPerformExtraDamageOnMonsterCondition(t, onHitMonster, mainSkill) * dmgReductionFactor
-        damage = damage + tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitMonster, mainSkill) * dmgReductionFactor
-        damage = damage + tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitMonster, mainSkill) * dmgReductionFactor
+
+        damage = damage + tryToPerformCrit(t, onHitMonster, mainSkill) --* dmgReductionFactor
+        damage = damage + tryToPerformExtraDamageOnMonsterCondition(t, onHitMonster, mainSkill) -- * dmgReductionFactor
+
+        damage = damage + tryToPerformExtraDamageWhenMonsterHPThreshold(t, onHitMonster, mainSkill) -- * dmgReductionFactor
+
+        damage = damage + tryToPerformExtraDamageWhenPlayerHPThreshold(t, onHitMonster, mainSkill) --  * dmgReductionFactor
+        -- nan checks on both
+        if damage == damage and dmgReductionFactor == dmgReductionFactor then
+            damage = damage * dmgReductionFactor
+        end
     end
+
     if activeSkill ~= nil then
         damage = damage + tryToPerformInstantKill(t, onHitMonster, activeSkill)
     end
+
     -- if true damage then use t.Damage instead of t.Result
     -- if active skill is nil its we will use the mainSkill as we want it to become true damage if main skill has the requirement
     if tryToPerformTrueDamage(t, onHitMonster, activeSkill or mainSkill) then
@@ -611,7 +659,7 @@ function events.CalcDamageToMonster(t)
     if eventTracker.totalCalcDamageToMonsters == eventTracker.currentCalcDamageToMonster then
         ShowStatusTextOnHitMonster(t.Player, t.Monster)
     end
-    t.Result = damage
+    t.Result = math.floor(damage)
     eventTracker.damageDone = eventTracker.damageDone + t.Result
 end
 
@@ -788,7 +836,7 @@ function tryToPerformExtraDamageOnMonsterCondition(t, onHitEventType, activeSkil
         local activeSlot = availability.activeSlot
         local wEffect = getWeaponEffect(onHitEventType, weExtraDamageOnMonsterCondition, weapons[activeSlot], activeSkill)
         local AIState = wEffect[wefAIState]
-        if AIState[t.Monster.AIState] then 
+         if AIState[t.Monster.AIState] then 
             local skill, mastery = SplitSkill(t.Player.Skills[activeSkill])
             local chance = wEffect[wefChance]
             if calcIfWeaponEffectProcs(skill, chance, t.Player) then
@@ -855,13 +903,15 @@ end
 function tryToPerformAmbush(t, onHitEventType, activeSkill)
     local damage = 0
     -- https://grayface.github.io/mm/ext/ref/#const.AIState
-    -- had to remove t.Monster.AIState == 0 because monster enters this state during combat
+    -- had to remove t.Monster.AIState == 0 because 
     -- 9 fidget, 0 standing, 1 active, 10 interacting (friendly standing infront of party). 
-    if t.Monster.HP == t.Monster.FullHP and (t.Monster.AIState == 9 or t.Monster.AIState == 1 or t.Monster.AIState == 10) then
+    if t.Monster.HP == t.Monster.FullHP and 
+        (t.Monster.AIState == const.AIState.Fidget or t.Monster.AIState == const.AIState.Active or 
+        -- or t.Monster.AIState == const.AIState.Stand monster enters this state during combat
+        t.Monster.AIState == const.AIState.Interact) then
         local availability = getWeaponsEffectAvailability(t.Player, onHitEventType, weAmbush, activeSkill)
         local weapons = getPlayerWeapons(t.Player)
         local available = availability.available
-        -- for weaponSlot, available in pairs(availability) do
         if available then
             local activeSlot = availability.activeSlot
             -- local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
@@ -892,6 +942,9 @@ function AddStatusText(t)
             text = wEffect[wefGameStatusText][statusText],
             power = power,
         }
+    end
+    if wEffectId == weExtraDamageOnMonsterCondition then 
+        tprint(eventTracker)
     end
 end
 
@@ -1043,10 +1096,16 @@ function applyMonsterBuffOnAllInMeleeRange(duration, power)
 end
 
 function applyMonsterBuff(monster, duration, power) 
-    evt.PlaySound(monster.SoundGetHit, monster.X, monster.Y)
-    monster.SpellBuffs[power].ExpireTime = Game.Time + duration * const.Minute -- 1 Minute is 256 is game time, which in real time game play translate to 2 seconds.
-    if power == 6 then
-        eventTracker.paralyze = eventTracker.paralyze + 1
+    if monster.HP > 0 then
+        evt.PlaySound(monster.SoundGetHit, monster.X, monster.Y)
+        monster.SpellBuffs[power].ExpireTime = Game.Time + duration * const.Minute -- 1 Minute is 256 is game time, which in real time game play translate to 2 seconds.
+        if power == 6 then
+            monster.AIState = const.AIState.Paralyzed
+            eventTracker.paralyze = eventTracker.paralyze + 1
+        elseif power == 4 then
+            monster.AIState = const.AIState.Flee
+        end
+
     end
 end
 
@@ -1243,38 +1302,6 @@ if not WhoHitMonster then
 			return Who(i), u4[p + 4]
 		end
 	end
-end
-
-function merge(...)
-    local result = {}
-    for _, t in ipairs{...} do
-        for k, v in pairs(t) do
-            result[k] = v
-        end
-        local mt = getmetatable(t)
-        if mt then
-            setmetatable(result, mt)
-        end
-        end
-    return result
-end
-
-function clone(object)
-    local lookup_table = {}
-    local function copy(object) 
-        if type(object) ~= "table" then
-            return object
-        elseif lookup_table[object] then
-            return lookup_table[object]
-        end
-        local new_table = {}
-        lookup_table[object] = new_table
-        for key, value in pairs(object) do
-            new_table[copy(key)] = copy(value)
-        end
-        return setmetatable(new_table, getmetatable(object))
-    end
-    return copy(object)
 end
 
 
