@@ -369,8 +369,8 @@ local weaponEffects = {
 
 -- Effects triggered in ItemAdditionalDamage will be shown to player in CalcDamageToMonster
 function events.ItemAdditionalDamage(t)
-    local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Air])
-    t.Player.Skills[const.Skills.Air] = JoinSkill(math.max(wskill, 20), math.max(wmastery, const.GM))
+    -- local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Air])
+    -- t.Player.Skills[const.Skills.Air] = JoinSkill(math.max(wskill, 20), math.max(wmastery, const.GM))
     local activeSkill = Game.ItemsTxt[t.Item.Number].Skill
     local damage = 0
     damage = damage + TryToPerformAmbush(t, onHitMonster, activeSkill)
@@ -594,8 +594,6 @@ function GetActiveSkillBasedOnCurrentCalcDamageToMonstersEvent(player, monster, 
 end
 
 function events.CalcDamageToMonster(t)
-
-
     -- if a player is not the source then no extra damage is done 
     if t.Player == nil then
         return
