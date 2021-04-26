@@ -291,10 +291,13 @@ local weaponEffects = {
                 [weGreaterCleave] = greaterCleave             
             },
             [onHitPlayer] = {
-                [weGreaterCleave] = Merge(greaterCleave, {[wefGameStatusText] = {
-                    [statusText] = "revenge cleaves",
-                    [textPosition] = textPositionPre,
-                }})           
+                [weGreaterCleave] = Merge(greaterCleave, {
+                    [wefChance] = 0.8,
+                    [wefGameStatusText] = {
+                        [statusText] = "revenge cleaves",
+                        [textPosition] = textPositionPre,
+                    }
+                })           
             }
         }
     },
@@ -1121,6 +1124,7 @@ function WeaponDamageToMonsterOutsideAttackEvent(monster, monsterIndex, weaponTx
             ["Type"] = 4,
             ["Player"] = player,
         }
+        -- Existing in merge, but won't throw errors if used in game without this event.
         events.cocall("MonsterKilled", monster, monsterIndex, nil, killer)
         eventTracker.kills = eventTracker.kills + 1
     else
