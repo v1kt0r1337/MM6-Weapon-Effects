@@ -367,13 +367,10 @@ local weaponEffects = {
     },
 }
 
-
-
-
 -- Effects triggered in ItemAdditionalDamage will be shown to player in CalcDamageToMonster
 function events.ItemAdditionalDamage(t)
-    -- local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Unarmed])
-    -- t.Player.Skills[const.Skills.Unarmed] = JoinSkill(math.max(wskill, 20), math.max(1343, const.GM))
+    local wskill, wmastery = SplitSkill(t.Player.Skills[const.Skills.Air])
+    t.Player.Skills[const.Skills.Air] = JoinSkill(math.max(wskill, 20), math.max(wmastery, const.GM))
     local activeSkill = Game.ItemsTxt[t.Item.Number].Skill
     local damage = 0
     damage = damage + TryToPerformAmbush(t, onHitMonster, activeSkill)
@@ -412,19 +409,28 @@ local defaultEventTracker = {
 
 local eventTracker = DeepCopy(defaultEventTracker)
 
-function InitiateNewAttackEventRound(player) 
-    eventTracker.totalCalcDamageToMonsters = GetTotalCalcDamageToMonsters(player)
+function InitiateNewAttackEventRound(player, isMelee) 
+    eventTracker.totalCalcDamageToMonsters = GetTotalCalcDamageToMonsters(player, isMelee)
 end 
 
-function GetTotalCalcDamageToMonsters(player) 
+function GetTotalCalcDamageToMonsters(player, isMelee) 
     local weapons = GetPlayerWeapons(player)
     mainSkill = weapons.main ~= nil and weapons.main.Skill or const.Skills.Unarmed
     if isMelee == false and mainSkill ~= const.Skills.Blaster then
         return 2
     end
     
-    if mainSkill == const.Skills.Blaster or (mainSkill == const.Skills.Unarmed and weapons.extra == nil) then
+    if mainSkill == const.Skills.Blaster then
         return 1
+    end
+
+    if mainSkill == const.Skills.Unarmed and weapons.extra == nil then
+        -- if Unarmed and hammerhands then two CalcDamageToMonster will get triggered
+        if player.SpellBuffs[6].ExpireTime > Game.Time then
+            return 2
+        else
+            return 1
+        end
     end
 
     local extraSkill = weapons.extra ~= nil and weapons.extra.Skill or const.Skills.Unarmed
@@ -588,6 +594,8 @@ function GetActiveSkillBasedOnCurrentCalcDamageToMonstersEvent(player, monster, 
 end
 
 function events.CalcDamageToMonster(t)
+
+
     -- if a player is not the source then no extra damage is done 
     if t.Player == nil then
         return
@@ -598,19 +606,20 @@ function events.CalcDamageToMonster(t)
     end
 
     local isMelee = IsMonsterInMeleeRange(t.Monster)
-
-    local playerUsesBlaster = t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number].Skill == const.Skills.Blaster or false
-    -- Weapon Effects should only trigger on Phys damage or blaster attacks.
-    -- DamageKind 0 seems to be used when its additional item damage
-    if t.DamageKind ~= const.Damage.Phys and t.DamageKind ~= 12 and t.DamageKind ~= 0 then 
-        return
-    elseif t.DamageKind == 12 and playerUsesBlaster == false then 
-        return
-    end
     
-    if eventTracker.totalCalcDamageToMonsters == 0 then
-        InitiateNewAttackEventRound(t.Player)
+    -- When currentCalcDamageToMonster is 0 we differentiate if this is a physical attack or a spell
+    if eventTracker.currentCalcDamageToMonster == 0 then
+        local playerUsesBlaster = t.Player.ItemMainHand ~= 0 and Game.ItemsTxt[t.Player.Items[t.Player.ItemMainHand].Number].Skill == const.Skills.Blaster or false
+        -- Weapon Effects should only trigger on Physical attacks or blaster attacks.
+        -- DamageKind 0 seems to be used when its additional item damage
+        if t.DamageKind ~= const.Damage.Phys and t.DamageKind ~= 12 then 
+            return
+        elseif t.DamageKind == 12 and playerUsesBlaster == false then 
+            return
+        end
+        InitiateNewAttackEventRound(t.Player, isMelee)
     end
+
     eventTracker.currentCalcDamageToMonster = eventTracker.currentCalcDamageToMonster + 1
     -- activeSkill needs to be extracted after InitiateNewAttackEventRound
     local activeSkill = GetActiveSkillBasedOnCurrentCalcDamageToMonstersEvent(t.Player, t.Monster, isMelee)
@@ -907,6 +916,7 @@ function TryToPerformAmbush(t, onHitEventType, activeSkill)
         local availability = GetWeaponsEffectAvailability(t.Player, onHitEventType, weAmbush, activeSkill)
         local weapons = GetPlayerWeapons(t.Player)
         local available = availability.available
+        
         if available then
             local activeSlot = availability.activeSlot
             -- local activeSkill = weapons[weaponSlot] ~= nil and weapons[weaponSlot].Skill or const.Skills.Unarmed
