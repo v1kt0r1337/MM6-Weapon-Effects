@@ -67,7 +67,7 @@ To interpret fields like Chance (1) see [Weapon effect fields](#weapon-effect-fi
 - Chance (1) of cleaving all surrounding monster on hit (Multiplier 1).
 ##### 2-handed weapons: 
 - Chance (1) of cleaving all surrounding monster on hit (Multiplier 1).
-- Chance (1) of cleaving all surrounding monster when player is hit (Multiplier 1).
+- Chance (0.8) of cleaving all surrounding monster when player is hit (Multiplier 1).
 #### Sword
 ##### 1-handed weapons: 
 - Chance (1) to parry incoming damage (Multiplier 0).
