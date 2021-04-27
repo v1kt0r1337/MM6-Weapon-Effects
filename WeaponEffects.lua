@@ -602,7 +602,6 @@ function GetActiveSkillBasedOnCurrentCalcDamageToMonstersEvent(player, monster, 
 end
 
 function events.CalcDamageToMonster(t)
-    TPrint(t)
     -- if a player is not the source then no extra damage is done 
     if t.Player == nil then
         return
