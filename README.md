@@ -68,21 +68,29 @@ To interpret fields like Chance (1) see [Weapon effect fields](#weapon-effect-fi
 ##### 2-handed weapons: 
 - Chance (1) of cleaving all surrounding monster on hit (Multiplier 1).
 - Chance (0.8) of cleaving all surrounding monster when player is hit (Multiplier 1).
+![Screenshot](images/2h_axe_revenge_cleave.png)
+
 #### Sword
 ##### 1-handed weapons: 
 - Chance (1) to parry incoming damage (Multiplier 0).
+![Screenshot](images/sword_parry.png)
+
 ##### 2-handed weapons: 
 - Chance (1) to parry incoming damage (Multiplier 0).
 - Chance (0.5) to decapitate (instant kill) on hit
+![Screenshot](images/2h_sword_execute.png)
 
 #### Dagger
 - Additional chance (1) to crit for a more substantial amount of damage (Multiplier 2)
+![Screenshot](images/dagger_crits.png)
 
 #### Unarmed
  - Extra damage when monster is below 50% hp. (Multiplier 1)
+![Screenshot](images/unarmed_extra_dmg_when_monster_low.png)
 
 #### Mace
 - Deals additional damage on monsters that are stunned or paralyzed (Multiplier 2)
+![Screenshot](images/mace_extra_dmg_on_paralyzed.png)
 
 #### Staff
 - Deals additional damage on monsters that are stunned, paralyzed or fleeing, but with a lower damage multiplier then mace (Multiplier 1).
@@ -90,15 +98,20 @@ To interpret fields like Chance (1) see [Weapon effect fields](#weapon-effect-fi
 
 #### Spear
 - Extra damage when player is below 75% hp. The damage will increase the lower the players hp is. The formula is Multiplier - HP /FullHP (Multiplier 2)
+![Screenshot](images/spear_extra_dmg_when_player_low.png)
+
 ###### Used 2-handed or with shield
 - Extra damage when player is below 50% hp (Multiplier 1)
 - True damage, passes physical damage reduction as long as the monster is not immune to physical damage
 
 #### Bow and blaster
 - No additional effects added except ambush. 
+![Screenshot](images/ranged_ambush.png)
 
 #### Shield
 - Chance to stun all surrounding monster when player is hit
+![Screenshot](images/shield_paralyze.png)
+
 
 ## Weapon effect fields
 #### Chance - wefChance
