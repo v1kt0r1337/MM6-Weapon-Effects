@@ -396,6 +396,7 @@ local defaultEventTracker = {
     cleaveDamage = 0,
     kills = 0,
     paralyze = 0,
+    blockedDamage = 0,
     textPositionPre = {
         -- [weEffect] = {
         --  text = "",
@@ -514,6 +515,10 @@ function ShowStatusTextOnHitPlayer(player)
                 hasPreText = true
                 statusText = statusText .. " " .. effectStatus.text
 
+                if wEffectId == weBlock then
+                    statusText = statusText .. " " .. -eventTracker.blockedDamage .. " dmg!"
+                end
+
                 if wEffectId == weGreaterCleave then
                     statusText = statusText .. " for " .. eventTracker.cleaveDamage .. " dmg"
                     if eventTracker.kills > 0 then
@@ -597,6 +602,7 @@ function GetActiveSkillBasedOnCurrentCalcDamageToMonstersEvent(player, monster, 
 end
 
 function events.CalcDamageToMonster(t)
+    TPrint(t)
     -- if a player is not the source then no extra damage is done 
     if t.Player == nil then
         return
@@ -692,6 +698,7 @@ function events.CalcDamageToPlayer(t)
         damageFactor = damageFactor * TryToPerformBlock(t, onHitPlayer, skill)
     end
 
+    eventTracker.blockedDamage = eventTracker.blockedDamage - (t.Result * damageFactor) - t.Result
     -- damageFactor 1 is full damage, damageFactor 0 is no damage, 0.5 is half damage
     t.Result = t.Result * damageFactor
     ShowStatusTextOnHitPlayer(t.Player)
