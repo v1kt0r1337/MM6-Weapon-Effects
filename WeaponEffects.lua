@@ -180,7 +180,7 @@ local allOnHitPlayerEffects = {
     [weApplyMonsterBuffOnAllInMeleeRange] = applyParalyzeToAllMonstersInMelee,
 }
 
-local function Merge(...)
+local function MergeTables(...)
     local result = {}
     for _, t in ipairs{...} do
         for k, v in pairs(t) do
@@ -232,7 +232,7 @@ local weaponEffects = {
                         [textPosition] = textPositionPre,
                     } 
                 },
-                [weExtraDamageWhenMonsterHPThreshold] = Merge(extraDmgMonsterLowHp, 
+                [weExtraDamageWhenMonsterHPThreshold] = MergeTables(extraDmgMonsterLowHp, 
                     {[wefExtraReqs] = {
                         [reqsMasteriesOr] = {
                             -- Makes this weapon effect only available to Monks 
@@ -291,7 +291,7 @@ local weaponEffects = {
                 [weGreaterCleave] = greaterCleave             
             },
             [onHitPlayer] = {
-                [weGreaterCleave] = Merge(greaterCleave, {
+                [weGreaterCleave] = MergeTables(greaterCleave, {
                     [wefChance] = 0.8,
                     [wefGameStatusText] = {
                         [statusText] = "revenge cleaves",
