@@ -6,7 +6,7 @@ I also wanted to make this mod flexible, you can attach whatever combination of 
 The mod distinguish between effects that happens when the player hits a monster and effects that happens when a monster hits a player. Some effects like cleave can be used both circumstances.
 
 ## Getting started
-This mod requires the [Might and Magic 678 Merge mod](https://gitlab.com/templayer/mmmerge/)
+This mod requires the [Might and Magic 678 Merge mod](https://gitlab.com/cthscr/mmmerge/-/wikis/Manual/Install)
 Copy the WeaponEffects.lua file into Scripts\Global folder. Your folder path might look something like:
 C:\Program Files (x86)\GOG Galaxy\Games\Might and Magic 8\Scripts\Global
 
