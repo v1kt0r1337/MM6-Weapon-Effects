@@ -1026,7 +1026,7 @@ end
 
 function GetWeaponEffect(onHitEventType, weaponEffectId, weapon, skill)
     -- Deeper table nesting when skill is not Unarmed
-    if (skill ~= const.Skills.Unarmed and skill ~= nil) then
+    if (skill ~= const.Skills.Unarmed and skill ~= nil and weapon ~= nil) then
         return weaponEffects[skill][weapon.EquipStat][onHitEventType][weaponEffectId]
     elseif (skill == const.Skills.Unarmed) then
         return weaponEffects[skill][onHitEventType][weaponEffectId]
