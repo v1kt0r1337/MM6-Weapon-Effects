@@ -1,17 +1,28 @@
-# Might and Magic 678 Weapon effects
+# Might and Magic 6 Weapon effects
+
+This is an improved port of my mod [MMMerge Weapon Effects](https://github.com/v1kt0r1337/MMMerge-Weapon-Effects) a mod which was made with Might and Magic VI in mind.
+The screenshots below are from the original mod, but you get a gist of how this works in Might and Magic VI
+
 ## Purpose
-The purpose of this mod is to give the weapon types in Might and Magic 678 merge a more disctinct feel.
-By using the default loadout every melee weapon type including Unarmed gets a different effect attached to it. There is also an extra effect attached to 2-Handed weapons.  
+The purpose of this mod is to give the weapon types a more disctinct feel, and make might more on par with offensive magic.
+By using the default loadout every melee weapon type a different effect attached to it. There is also an extra effect attached to 2-Handed weapons.  
 I also wanted to make this mod flexible, you can attach whatever combination of weapon effects you want to a single weapon type, and attach different requirements for each weapon effect.
 The mod distinguish between effects that happens when the player hits a monster and effects that happens when a monster hits a player. Some effects like cleave can be used both circumstances.
 
 ## Getting started
-This mod requires the [Might and Magic 678 Merge mod](https://gitlab.com/cthscr/mmmerge/-/wikis/Manual/Install)
-Copy the WeaponEffects.lua file into Scripts\Global folder. Your folder path might look something like:
-C:\Program Files (x86)\GOG Galaxy\Games\Might and Magic 8\Scripts\Global
+This mod requires the unreleased [MMExtension v2.3](https://github.com/GrayFace/MMExtension)
+MMExtension v2.3 requires [GrayFace patch version 2.1+](https://grayface.github.io/mm/#GrayFace-MM6-Patch), I'd recommend picking the latest version.
 
-While the mod requires the merge mod converting it to Migth and Magic 8 and 7 should be quite easy, 6 might require a bit more work, but should still be quite easy. 
-Open an issue request and I might just convert the mod to your favorite game!
+This mod comes in two versions, standalone and bundled with MMExtension v2.3.
+
+### Standalone
+If you already got mods that are using MMExtension v2.3 you can pick the standalone version. 
+Copy the WeaponEffects.lua file into Scripts\Global folder.
+Your folder path might look something like ```C:\Program Files (x86)\GOG Galaxy\Games\Might and Magic 8\Scripts\Global```
+
+### Bundled with MMExtension v2.3
+Copy the entire Scripts folder into your Might and Magic 8 folder.
+Your folder path might look something like ```C:\Program Files (x86)\GOG Galaxy\Games\Might and Magic 8```
 
 
 ## Table of Contents
@@ -21,7 +32,6 @@ Open an issue request and I might just convert the mod to your favorite game!
     - [Axe](#axe)
     - [Sword](#sword)
     - [Dagger](#dagger)
-    - [Unarmed](#unarmed)
     - [Mace](#mace)
     - [Staff](#staff)
     - [Spear](#spear)
@@ -32,6 +42,7 @@ Open an issue request and I might just convert the mod to your favorite game!
 - [Damage calculations](#damage-calculations)
 - [Unused effects](#unused-effects)
 - [Detailed mechanics](#detailed-mechanics)
+- [Bonus (damage tracker)](#bonus)
 - [Special thanks](#special-thanks)
 
 
@@ -48,18 +59,14 @@ As mentioned there are two categories of effects, effects that trigger when play
 Some weapon effects can only be used in one of these contexts while others can be used in both contexts: AN OVERVIEW OF THESE CAN BE SEEN LINK.
 
 ## Damage calculation
-Most weapon effects that deal bonus damage will do weapon damage if armed and unarmed damage if unarmed
+Most weapon effects that deal bonus damage will do weapon damage.
 
 Weapon damage:
 - Weapons dice damage + damage modifier. If weapon has 2d3 + 4 it will do 6-10 damage.
 
-Unarmed damage:
-- 1d3 + unarmed skill damage + strength bonus
-
 In addition the multiplier field is used. A multiplier of 1 will leave the damage unchanged, a multiplier of 2 will double the damage and a multiplier of 0.5 will halve the damage. For more about multiplier see [Multiplier - wefMultiplier](#multiplier-wefmultiplier)
 
 ## Default loadout (short version)
-All weapons including blasters and bow have the ambush effect which gives extra damage to unaware monsters (and peasants!) with full hp that are not in watch mode (unfortunately AIState standing also happens during combat). 
 To interpret fields like Chance (1) see [Weapon effect fields](#weapon-effect-fields).
 
 #### Axe
@@ -68,49 +75,46 @@ To interpret fields like Chance (1) see [Weapon effect fields](#weapon-effect-fi
 ##### 2-handed weapons: 
 - Chance (1) of cleaving all surrounding monster on hit (Multiplier 1).
 - Chance (0.8) of cleaving all surrounding monster when player is hit (Multiplier 1).
-![Screenshot](images/2h_axe_revenge_cleave.png)
+![Screenshot](images/mm6_2h_axe_revenge_cleave.png)
 
 #### Sword
 ##### 1-handed weapons: 
 - Chance (1) to parry incoming damage (Multiplier 0).
-![Screenshot](images/sword_parry.png)
+![Screenshot](images/mm6_sword_parry.png)
 
 ##### 2-handed weapons: 
 - Chance (1) to parry incoming damage (Multiplier 0).
 - Chance (0.5) to decapitate (instant kill) on hit
-![Screenshot](images/2h_sword_execute.png)
+![Screenshot](images/mm6_2h_sword_execute.png)
 
 #### Dagger
 - Additional chance (1) to crit for a more substantial amount of damage (Multiplier 2)
-![Screenshot](images/dagger_crits.png)
-
-#### Unarmed
- - Extra damage when monster is below 50% hp. (Multiplier 1)
-![Screenshot](images/unarmed_extra_dmg_when_monster_low.png)
+![Screenshot](images/mm6_dagger_crits.png)
 
 #### Mace
 - Deals additional damage on monsters that are stunned or paralyzed (Multiplier 2)
-![Screenshot](images/mace_extra_dmg_on_paralyzed.png)
+![Screenshot](images/mm6_mace_extra_dmg_on_paralyzed.png)
 
 #### Staff
-- Deals additional damage on monsters that are stunned, paralyzed or fleeing, but with a lower damage multiplier then mace (Multiplier 1).
-###### Bonus: Staff used with Unarmed GM also give the Unarmed weapon effect
+- Extra damage when monster is below 50% hp (Multiplier 5)
+![Screenshot](images/mm6_staff_extra_dmg_when_monster_low.png)
 
 #### Spear
 - Extra damage when player is below 75% hp. The damage will increase the lower the players hp is. The formula is Multiplier - HP /FullHP (Multiplier 2)
-![Screenshot](images/spear_extra_dmg_when_player_low.png)
 
 ###### Used 2-handed or with shield
-- Extra damage when player is below 50% hp (Multiplier 1)
+- Extra damage when player is below 75% hp. The damage will increase the lower the players hp is. The formula is Multiplier - HP /FullHP (Multiplier 2)
 - True damage, passes physical damage reduction as long as the monster is not immune to physical damage
+![Screenshot](images/mm6_spear_extra_dmg_when_player_low.png)
 
 #### Bow and blaster
-- No additional effects added except ambush. 
-![Screenshot](images/ranged_ambush.png)
+- Ambush effect which gives extra damage to unaware monsters with full hp that are not in watch mode, unfortunately in mm6 this only seem to work on peasants.
+- As an improved visual effect the damage from the extra arrow unlocked at master is added to the first arrow (if both hit) when displaying the damage.
+![Screenshot](images/mm6_ranged_ambush.png)
 
 #### Shield
 - Chance to stun all surrounding monster when player is hit
-![Screenshot](images/shield_paralyze.png)
+![Screenshot](images/mm6_shield_paralyze.png)
 
 
 ## Weapon effect fields
@@ -225,17 +229,16 @@ Used by weExtraDamageWhenPlayerCondition. If set to scaleWithLowHP it will deal 
 
 ## Weapon effect requirements
 Requirements are always optional..
-Default loadout requires Grand Master to unlock all new weapon effects except for ambush.
+Default loadout requires Master to unlock all new weapon effects except for ambush.
 
 #### Mastery - wefMastery
-Mastery is the most common effect requirement and is based on the skill mastery of the skill used by the weapon/shield/unarmed the effect is attached to.
-The value in mastery is the minimum requirement for being able to activate the effect, if Mastery is Master both Master and Grand Master will satisfy the requirement.
-In default loadout all effects except ambush got GM (Grand Master) as a requirement.
+Mastery is the most common effect requirement and is based on the skill mastery of the skill used by the weapon/shield the effect is attached to.
+The value in mastery is the minimum requirement for being able to activate the effect, if Mastery is Master both Master and Master will satisfy the requirement.
+In default loadout all effects except ambush got Master as a requirement.
 Valid values are: (https://grayface.github.io/mm/ext/ref/#const)
 - const.Novice
 - const.Expert
 - const.Master	
-- const.GM
 
 #### Extra requirements (weFieldsExtraReqs)
 Inside extra requirements we can set additional requirements
@@ -296,7 +299,7 @@ local weaponEffects = {
                     [weFieldsChance] = 1,
                     -- damageFactor of 0 completely negates all damage, 
                     [weFieldsMultiplier] = 0,
-                    [weFieldsMastery] = const.GM
+                    [weFieldsMastery] = const.Master
                 }
             }
         },
@@ -307,7 +310,7 @@ local weaponEffects = {
                 },
                 [weInstantKill] = {
                     [weFieldsChance] = 0.5,
-                    [weFieldsMastery] = const.GM
+                    [weFieldsMastery] = const.Master
                 }
             },
             [onHitPlayer] = {
@@ -315,7 +318,7 @@ local weaponEffects = {
                     [weFieldsChance] = 1,
                     -- damageFactor of 0 completely negates all damage, 
                     [weFieldsMultiplier] = 0,
-                    [weFieldsMastery] = const.GM
+                    [weFieldsMastery] = const.Master
                 }
             }
         }
@@ -328,22 +331,22 @@ local weaponEffects = {
 -- local struct.extraReqs = {
 --     reqsMasteriesOr = { -- Only one of these mastery reqs must be met
 --          --[[ 
---         [const.Skills.Sword] = const.GM,
---         [const.Skills.Staff] = const.GM    
+--         [const.Skills.Sword] = const.Master,
+--         [const.Skills.Staff] = const.Master    
 --          --]]
 --     }, 
 --     otherHand = { -- Skill type used by other hand, only one of these reqs must be met 
 --         --[[ 
 --             [const.Skills.Shield] = true,
---             [const.Skills.Unarmed] = true   
+--             ["Unarmed"] = true   
 --         --]]
 --     }
 
     -- Not implemented
     -- masteriesAnd = { -- All these mastery reqs must be met
     --  --[[ 
-    --     [const.Skills.Sword] = const.GM,
-    --     [const.Skills.Staff] = const.GM    
+    --     [const.Skills.Sword] = const.Master,
+    --     [const.Skills.Staff] = const.Master    
     -- --]]
     -- },
     -- skillsOr = { -- Only one of these skill points reqs must be met
@@ -361,6 +364,12 @@ local weaponEffects = {
     -- }
 -- }
 ```
+
+## Bonus
+Check the damage performance of your party members!
+Click Ctrl + F1 to open the console, type ```showDamage()``` and click Ctrl + Enter
+![Screenshot](images/mm6_show_damage.png)
+
 
 
 ## Special thanks
