@@ -1,7 +1,6 @@
 # Might and Magic 6 Weapon effects
 
 This is an improved port of my mod [MMMerge Weapon Effects](https://github.com/v1kt0r1337/MMMerge-Weapon-Effects) a mod which was made with Might and Magic VI in mind.
-The screenshots below are from the original mod, but you get a gist of how this works in Might and Magic VI
 
 ## Purpose
 The purpose of this mod is to give the weapon types a more disctinct feel, and make might more on par with offensive magic.
@@ -13,7 +12,7 @@ The mod distinguish between effects that happens when the player hits a monster 
 This mod requires the unreleased [MMExtension v2.3](https://github.com/GrayFace/MMExtension)
 MMExtension v2.3 requires [GrayFace patch version 2.1+](https://grayface.github.io/mm/#GrayFace-MM6-Patch), I'd recommend picking the latest version.
 
-This mod comes in two versions, standalone and bundled with MMExtension v2.3.
+This mod comes in two versions, standalone and [bundled with MMExtension v2.3](https://drive.google.com/file/d/1P68IuJVT6kR8y7NvgGHyDJz18KT_xyvH/view?usp=share_link).
 
 ### Standalone
 If you already got mods that are using MMExtension v2.3 you can pick the standalone version. 
@@ -21,7 +20,7 @@ Copy the WeaponEffects.lua file into Scripts\Global folder.
 Your folder path might look something like ```C:\Program Files (x86)\GOG Galaxy\Games\Might and Magic 8\Scripts\Global```
 
 ### Bundled with MMExtension v2.3
-Copy the entire Scripts folder into your Might and Magic 8 folder.
+Extract MM6_Weapon_Effects.rar directly into your Might and Magic 8 folder.
 Your folder path might look something like ```C:\Program Files (x86)\GOG Galaxy\Games\Might and Magic 8```
 
 
